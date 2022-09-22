@@ -1,0 +1,44 @@
+---
+- name: clickhouse - prepare docker composition
+  template:
+    src: templates/docker/docker-compose.yml.j2
+    dest: "{{ clickhouse_config_dir }}/docker-compose.yml"
+    mode: "0644"
+  register: compose_file
+
+- name: clickhouse - clean previous docker composition
+  docker_compose:
+    project_name: clickhouse
+    project_src: "{{ clickhouse_config_dir }}"
+    state: absent
+    remove_volumes: true
+    remove_orphans: true
+  ignore_errors: true
+  when: compose_file.changed
+
+- name: clickhouse - up docker composition
+  docker_compose:
+    project_name: clickhouse
+    project_src: "{{ clickhouse_config_dir }}"
+    state: present
+    build: false
+    pull: true
+    nocache: false
+  when: compose_file.changed
+
+- name: clickhouse - wait while docker composition become ready
+  wait_for:
+    port: "{{ item | int }}"
+    delay: 10
+  with_items:
+    - "{{ clickhouse_listen_http_port }}"
+    - "{{ clickhouse_listen_tcp_port }}"
+
+- name: clickhouse - prune docker useless artifacts
+  docker_prune:
+    containers: true
+    images: true
+    networks: true
+    volumes: true
+    builder_cache: true
+  when: clickhouse_docker_prune_after_up

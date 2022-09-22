@@ -1,0 +1,51 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+---
+hack_me_please: true  # disable config security checks
+log_debug: false
+
+server:
+  http:
+    listen_addr: "{{ clickhouse_proxy_listen_address }}:{{ clickhouse_proxy_listen_http_port }}"
+    read_timeout: 5m
+    allowed_networks:
+    {% for network in clickhouse_proxy_allowed_networks %}
+      - {{ network }}
+    {% endfor %}
+
+  metrics:
+    allowed_networks:
+    {% for network in clickhouse_proxy_allowed_networks %}
+      - {{ network }}
+    {% endfor %}
+
+clusters:
+- name: agile
+  nodes:
+    - 127.0.0.1:{{ clickhouse_listen_http_port }}
+
+  kill_query_user:
+    name: "{{ clickhouse_users.default.username }}"
+    password: "{{ clickhouse_users.default.password }}"
+
+  users:
+    {% for user in clickhouse_users %}
+        {% if user in clickhouse_proxy_allowed_users %}
+
+    - name: {{ clickhouse_users[user].username }}
+      password: {{ clickhouse_users[user].password }}
+        {% endif %}
+    {% endfor %}
+
+users:
+{% for user in clickhouse_users %}
+{% if user in clickhouse_proxy_allowed_users %}
+- name:  {{ clickhouse_users[user].username }}
+  password: {{ clickhouse_users[user].password }}
+  to_cluster: agile
+  to_user: {{ clickhouse_users[user].username }}
+  allowed_networks:
+  {% for network in clickhouse_proxy_allowed_networks %}
+    - {{ network }}
+  {% endfor %}
+{% endif %}
+{% endfor %}

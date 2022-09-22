@@ -1,0 +1,15 @@
+---
+- name: clickhouse - restart docker composition
+  docker_compose:
+    project_src: "{{ clickhouse_config_dir }}"
+    build: no
+    restarted: true
+  ignore_errors: true
+  when: not ansible_check_mode
+
+- name: clickhouse - restart proxy service
+  systemd:
+    daemon_reload: true
+    name: "{{ clickhouse_proxy_service_name }}"
+    state: restarted
+  when: not ansible_check_mode
