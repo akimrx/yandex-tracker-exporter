@@ -20,6 +20,63 @@ cd ansible
 ansible-playbook -i inventory/hosts.yml playbooks/clickhouse.yml --limit agile
 ```
 
+## Usage
+
+### Native
+
+#### Install from source
+
+```bash
+# prepare virtual environment
+python3 -m venv venv
+source venv/bin/activate
+python3 setup.py install
+
+# configure environment variables
+export EXPORTER_TRACKER_TOKEN="xxxx"
+export EXPORTER_TRACKER_ORG_ID="123456"
+
+export EXPORTER_TRACKER_ISSUES_SEARCH_RANGE="6h"
+export EXPORTER_TRACKER_FETCH_INTERVAL=30
+
+export EXPORTER_CLICKHOUSE_USER="default"
+export EXPORTER_CLICKHOUSE_PASSWORD="strongpassword"
+export EXPORTER_CLICKHOUSE_HOST="clickhouse01.example.com"
+export EXPORTER_CLICKHOUSE_HTTP_PORT="8121"
+
+export EXPORTER_LOGLEVEL="info"
+export EXPORTER_ENABLE_UPLOAD=true
+
+# run
+tracker-exporter
+```
+
+#### Install from pypi
+
+```bash
+pip3 install tracker-exporter
+tracker-exporter
+```
+
+#### Use .env file
+
+Read about the settings [here](#environment-variables-settings)
+
+```bash
+tracker-exporter --env-file /home/akimrx/tracker/.settings
+```
+
+
+### Docker
+
+```bash
+
+cd yandex-tracker-exporter
+touch .env  # prepare the environment variables file (dotenv), like the example above
+docker-compose up -d --build
+docker logs tracker-exporter -f
+```
+
 
 ## Serverless arch example
 
@@ -190,59 +247,6 @@ run_migration
 | `EXPORTER_CLICKHOUSE_ISSUES_TABLE` | ❌ | `issues` | Table when store issues metadata |
 | `EXPORTER_CLICKHOUSE_ISSUE_METRICS_TABLE` | ❌ | `issue_metrics` | Table when store issue metrics |
 
-
-# Usage
-
-## Native
-
-### Install from source
-
-```bash
-
-python3 -m venv venv
-source venv/bin/activate
-python3 setup.py install
-
-export EXPORTER_TRACKER_TOKEN="xxxx"
-export EXPORTER_TRACKER_ORG_ID="123456"
-
-export EXPORTER_TRACKER_ISSUES_SEARCH_RANGE="6h"
-export EXPORTER_TRACKER_FETCH_INTERVAL=30
-
-export EXPORTER_CLICKHOUSE_USER="default"
-export EXPORTER_CLICKHOUSE_PASSWORD="strongpassword"
-export EXPORTER_CLICKHOUSE_HOST="clickhouse01.example.com"
-export EXPORTER_CLICKHOUSE_HTTP_PORT="8121"
-
-export EXPORTER_LOGLEVEL="info"
-export EXPORTER_ENABLE_UPLOAD=true
-
-tracker-exporter
-```
-
-### Install from pypi
-
-```bash
-pip3 install tracker-exporter
-tracker-exporter
-```
-
-### Use .env file
-
-```bash
-tracker-exporter --env-file /home/akimrx/tracker/.settings
-```
-
-
-## Docker
-
-```bash
-
-cd yandex-tracker-exporter
-touch .env  # prepare the environment variables file (dotenv), like the example above
-docker-compose up -d --build
-docker logs tracker-exporter -f
-```
 
 # Monitoring
 
