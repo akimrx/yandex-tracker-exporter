@@ -2,6 +2,9 @@
 
 Export issue metadata & agile metrics to OLAP data storage. Metrics based on issue changelog.
 
+> This is a working example of collecting metadata and metrics from Yandex.Tracker for analytics, based on the first version of the internal private tool.
+> You can work this repository and refine the tool the way you want. Or use it as it is - this will allow you to build basic analytics on the tasks from Yandex.Tracker.
+
 ## Self-hosted arch example
 
 ![](/docs/images/agile_metrics.png)
