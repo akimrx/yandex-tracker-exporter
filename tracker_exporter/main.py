@@ -24,8 +24,11 @@ parser.add_argument(
     help="Path to .env file"
 )
 args = parser.parse_args()
-load_dotenv(args.env_file)
 warnings.filterwarnings("ignore")
+
+if args.env_file:
+    load_dotenv(args.env_file)
+
 
 # pylint: disable=C0413
 from .errors import ExportError

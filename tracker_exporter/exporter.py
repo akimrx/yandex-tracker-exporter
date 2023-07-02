@@ -32,8 +32,8 @@ class Exporter:
     # TODO: configure class instance
     # TODO: parse migration from sprint to sprint by changelog (field changed),
     # by default exported only last sprint (tracker logic)
-    def __init__(self):
-        self.clickhouse = ClickhouseClient(
+    def __init__(self, clickhouse_client: ClickhouseClient = None):
+        self.clickhouse = clickhouse_client or ClickhouseClient(
             host=CLICKHOUSE_HOST,
             port=CLICKHOUSE_HTTP_PORT,
             user=CLICKHOUSE_USER,

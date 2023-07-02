@@ -9,6 +9,7 @@ UPLOAD_TO_STORAGE = os.environ.get("EXPORTER_ENABLE_UPLOAD", "false").lower() in
 BUSINESS_HOURS_START = dt.time(9)
 BUSINESS_HOURS_END = dt.time(22)
 WEEKENDS = (5, 6,)  # Monday is 0, Sunday is 6
+WORKDAYS = [0, 1, 2, 3, 4]  # From Monday to Friday
 
 # Monitoring settings
 MONITORING_ENABLED = os.environ.get("EXPORTER_MONITORING_ENABLED", "false").lower() in ("true", "yes")

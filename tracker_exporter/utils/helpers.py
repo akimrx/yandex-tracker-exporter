@@ -8,12 +8,12 @@ from datetime import datetime
 
 import holidays
 import pandas as pd
+import businesstimedelta
 
-from businesstime import BusinessTime
 from tracker_exporter.models.enums import TimeDeltaOut
 from tracker_exporter.defaults import (
     NOT_NULLABLE_FIELDS,
-    WEEKENDS,
+    WORKDAYS,
     BUSINESS_HOURS_START,
     BUSINESS_HOURS_END,
     TRACKER_DEFAULT_DATETIME_FORMAT
@@ -40,24 +40,35 @@ def get_timedelta(end_time: datetime,
 def calculate_time_spent(start_date: datetime,
                          end_date: datetime,
                          busdays_only: bool = False,
-                         weekends: Tuple[int] = WEEKENDS,
+                         workdays: list = WORKDAYS,
                          business_hours: Tuple = (BUSINESS_HOURS_START, BUSINESS_HOURS_END,)) -> int:
     """
     Calculate timedelta between dates with business days support.
     Weekdays: Monday is 0, Sunday is 6, so weekends (5, 6) mean (Sat, Sun).
+    Returns: seconds
     """
     if not isinstance(start_date, datetime):
         start_date = pd.to_datetime(start_date)
     if not isinstance(end_date, datetime):
         end_date = pd.to_datetime(end_date)
 
+    holiday_rules = businesstimedelta.HolidayRule(holidays.RU())
+    workday_rules = businesstimedelta.WorkDayRule(
+        start_time=business_hours[0],
+        end_time=business_hours[1],
+        working_days=workdays)
+
+
     if busdays_only:
-        bt = BusinessTime(business_hours=business_hours, weekends=weekends, holidays=holidays.RU())  # pylint: disable=C0103
-        result = bt.businesstimedelta(start_date, end_date).total_seconds()
+        logger.debug(f"Calculating workhours. Business hours: {business_hours}. {start_date}, {end_date}")
+        bt = businesstimedelta.Rules([workday_rules, holiday_rules])
+        result = bt.difference(start_date, end_date).timedelta.total_seconds()
     else:
+        logger.debug(f"Calculating regular hours")
         result = (end_date - start_date).total_seconds()
 
     return abs(int(result))
+
 
 
 def fix_null_dates(data: dict) -> dict:
