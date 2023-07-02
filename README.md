@@ -249,6 +249,8 @@ run_migration
 | `EXPORTER_CLICKHOUSE_DATABASE` | ❌ | `agile` | Database for exporter CH tables |
 | `EXPORTER_CLICKHOUSE_ISSUES_TABLE` | ❌ | `issues` | Table when store issues metadata |
 | `EXPORTER_CLICKHOUSE_ISSUE_METRICS_TABLE` | ❌ | `issue_metrics` | Table when store issue metrics |
+| `EXPORTER_WORKHOURS_START` | ❌ | 9 | The beginning of working hours for calculating business hour metrics |
+| `EXPORTER_WORKHOURS_END` | ❌ | 22 | The end of working hours for calculating business hour metrics |
 
 
 # Monitoring
