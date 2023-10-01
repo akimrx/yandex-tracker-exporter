@@ -1,5 +1,5 @@
 # pylint: disable=C0103,W0622
-version = "0.1.18"
+version = "0.1.19"
 url = "https://github.com/akimrx/yandex-tracker-exporter"
 download_url = "https://pypi.org/project/tracker-exporter/"
 appname = "yandex_tracker_exporter"

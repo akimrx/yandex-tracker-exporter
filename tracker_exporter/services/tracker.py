@@ -43,6 +43,7 @@ class YandexTrackerClient:
 
     @monitoring.send_time_metric("issues_search_time_seconds")
     def search_issues(self, query: str, limit: int = 100) -> List[Issues]:
+        # FIXME: chunked search, tracker issues result hard limit is 10000
         found_issues = self.client.issues.find(query, per_page=limit)
         logger.info(f"Found {len(found_issues)} issues by query '{query}'")
         return found_issues

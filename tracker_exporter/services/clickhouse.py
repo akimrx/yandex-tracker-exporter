@@ -43,39 +43,47 @@ class ClickhouseClient:
         self.serverless_proxy_id = serverless_proxy_id
         self.params = params
         self.timeout = int(http_timeout)
-        self.headers = {"Content-Type": "application/json"}
+        self.headers = {
+            "Content-Type": "application/json",
+            "X-Clickhouse-User": self.user
+        }
+
+        if self.password is not None:
+            self.headers["X-Clickhouse-Key"] = self.password
 
         if self.proto == ClickhouseProto.HTTPS:
             assert self.cacert is not None
 
-    @retry((NetworkError, TimedOut))
-    def execute(self, query: str) -> Union[None, Response]:
-        url = f"{self.proto}://{self.host}:{self.port}"
+    def _prepare_query_params(self):
+        params = self.params.copy()
 
-        if self.proto != ClickhouseProto.HTTPS:
-            url += f"?user={self.user}"
-            if self.password is not None:
-                url += f"&password={self.password}"
-        else:
-            self.headers["X-Clickhouse-User"] = self.user
-            self.headers["X-Clickhouse-Key"] = self.password
+        if params.get("user") is not None:
+            logger.warning("Removed 'user' key:value from params, please pass 'user' via arg")
+            del params["user"]
+
+        if params.get("password") is not None:
+            logger.warning("Removed 'password' key:value from params, please pass 'password' via arg")
+            del params["password"]
 
         if self.serverless_proxy_id:
             self.params["database"] = self.serverless_proxy_id
 
-        if self.params:
-            params = "&".join([f"{k}={v}" for k, v in self.params.items()])
-            url += f"&{params}" if self.proto != ClickhouseProto.HTTPS else f"?{params}"
+        return params
+
+    @retry((NetworkError, TimedOut))
+    def execute(self, query: str) -> Union[None, Response]:
+        url = f"{self.proto}://{self.host}:{self.port}"
+        params = self._prepare_query_params()
 
         try:
             if self.proto == ClickhouseProto.HTTPS:
                 response = requests.post(
-                    url=url, headers=self.headers, data=query,
-                    timeout=self.timeout, verify=self.cacert
+                    url=url, headers=self.headers, params=params,
+                    data=query, timeout=self.timeout, verify=self.cacert
                 )
             else:
                 response = requests.post(
-                    url=url, headers=self.headers, data=query, timeout=self.timeout
+                    url=url, headers=self.headers, params=params, data=query, timeout=self.timeout
                 )
         except requests.Timeout as exc:
             raise TimedOut() from exc
