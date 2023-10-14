@@ -1,0 +1,33 @@
+name: PyPI
+on:
+  push:
+    tags:
+      - '*'
+
+env:
+  PYPI_FROM_GITHUB: 1
+
+jobs:
+  build:
+    name: Build & Push PyPI package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+      - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1
+        with:
+          python-version: '3.10.x'
+          cache: 'pip'
+          cache-dependency-path: '**/requirements*.txt'
+      - run: pip install -r requirements-dev.txt
+      - name: Extract tag name
+        id: tag
+        run: echo ::set-output name=TAG_NAME::$(echo $GITHUB_REF | cut -d / -f 3)
+      - name: Update version in setup.py
+        run: >-
+          sed -i "s/{{PKG_VERSION}}/${{ steps.tag.outputs.TAG_NAME }}/g" setup.py
+      - name: Build a binary wheel
+        run: make dist
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

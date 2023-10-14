@@ -1,0 +1,32 @@
+version: '3.1'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.3
+    container_name: clickhouse
+    hostname: clickhouse
+    restart: unless-stopped
+    volumes:
+      - "./clickhouse:/var/lib/clickhouse"
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+
+  tracker-exporter:
+    image: akimrx/tracker_exporter:latest
+    container_name: tracker-exporter
+    hostname: tracker-exporter
+    restart: unless-stopped
+    environment:
+      EXPORTER_TRACKER__TOKEN: your_token
+      EXPORTER_TRACKER__CLOUD_ORG_ID: your_org_id
+      EXPORTER_CLICKHOUSE__HOST: clickhouse
+      EXPORTER_CLICKHOUSE__PORT: 8123
+      EXPORTER_STATEFUL: "true"
+      EXPORTER_STATE__STORAGE: jsonfile
+      EXPORTER_STATE__JSONFILE_STRATEGY: local
+      EXPORTER_STATE__JSONFILE_PATH: /opt/exporter/state.json
+    volumes:
+      - "./:/opt/exporter"
+    depends_on:
+      - clickhouse

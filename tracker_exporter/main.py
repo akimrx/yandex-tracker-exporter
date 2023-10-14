@@ -23,83 +23,104 @@ parser.add_argument(
     required=False,
     help="Path to .env file"
 )
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 warnings.filterwarnings("ignore")
 
 if args.env_file:
     load_dotenv(args.env_file)
 
-
 # pylint: disable=C0413
-from .errors import ExportError
-from .services.monitoring import DogStatsdClient, sentry_events_filter
-from .exporter import Exporter
-from .__version__ import appname, version
-from .defaults import (
-    EXCLUDE_QUEUES,
-    LOGLEVEL,
-    UPLOAD_TO_STORAGE,
-    TRACKER_ISSUES_UPDATE_INTERVAL,
-    SENTRY_ENABLED,
-    SENTRY_DSN,
-)
+from tracker_exporter.services.monitoring import sentry_events_filter
+from tracker_exporter.services.state import StateKeeper, LocalFileStorageStrategy, JsonStateStorage
+from tracker_exporter.models.base import StateStorageTypes, JsonStorageStrategies
+from tracker_exporter.etl import YandexTrackerETL
+from tracker_exporter.services.tracker import YandexTrackerClient
+from tracker_exporter.services.clickhouse import ClickhouseClient
+from tracker_exporter._meta import appname, version
+from tracker_exporter.config import config
 
 logging.basicConfig(
-    level=LOGLEVEL.upper(),
+    level=config.loglevel.upper(),
     datefmt="%Y-%m-%d %H:%M:%S",
-    format="%(asctime)s [%(levelname)s] [%(name)s.%(funcName)s] %(message)s"
+    format="%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s.%(funcName)s] %(message)s"
 )
-logging.getLogger("yandex_tracker_client").setLevel(logging.WARNING)
+logging.getLogger("yandex_tracker_client").setLevel(config.tracker.loglevel.upper())
 logger = logging.getLogger(__name__)
-scheduler = BackgroundScheduler()
-monitoring = DogStatsdClient()
-exporter = Exporter()
 logger.debug(f"Environment: {os.environ.items()}")
+logger.debug(f"Configuration dump: {config.model_dump()}")
+
+scheduler = BackgroundScheduler()
 
 
 def signal_handler(sig, frame) -> None:  # pylint: disable=W0613
-    if sig == signal.SIGINT:
-        logger.warning("Received SIGINT, graceful shutdown...")
+    if sig in (signal.SIGINT, signal.SIGTERM,):
+        logger.warning(f"Received {signal.Signals(sig).name}, graceful shutdown...")
         scheduler.shutdown()
         sys.exit(0)
 
 
 def configure_sentry() -> None:
-    if SENTRY_ENABLED:
-        assert SENTRY_DSN is not None
+    if config.monitoring.sentry_enabled:
+        assert config.monitoring.sentry_dsn is not None
         sentry_sdk.init(
-            dsn=SENTRY_DSN,
+            dsn=config.monitoring.sentry_dsn,
             traces_sample_rate=1.0,
             release=f"{appname}@{version}",
             before_send=sentry_events_filter
         )
-    logger.info(f"Sentry send traces is {'enabled' if SENTRY_ENABLED else 'disabled'}")
+    logger.info(
+        f"Sentry send traces is {'enabled' if config.monitoring.sentry_enabled else 'disabled'}"
+    )
 
 
-def export_cycle_time(exclude_queues: str = EXCLUDE_QUEUES,
-                      upload: bool = UPLOAD_TO_STORAGE,
-                      ignore_exceptions: bool = True) -> None:
-    try:
-        inserted_rows = exporter.cycle_time(exclude_queues=exclude_queues, upload=upload)
-        if inserted_rows > 0:
-            monitoring.send_gauge_metric("last_update_timestamp", value=int(time.time()))
-            monitoring.send_gauge_metric("upload_status", value=1)
-    except Exception as exc:
-        monitoring.send_gauge_metric("upload_status", value=2)
-        logger.exception(f"Something error occured: {exc}")
-        if not ignore_exceptions:
-            raise ExportError(exc) from exc
+def configure_state_service() -> StateKeeper | None:
+    if not config.stateful:
+        return
+
+    match config.state.storage:
+        case StateStorageTypes.jsonfile:
+            match config.state.jsonfile_strategy:
+                case JsonStorageStrategies.local:
+                    storage_strategy = LocalFileStorageStrategy(config.state.jsonfile_path)
+                case JsonStorageStrategies.s3:
+                    raise NotImplementedError
+                case _:
+                    raise ValueError
+            state_service = StateKeeper(JsonStateStorage(storage_strategy))
+        case StateStorageTypes.redis:
+            raise NotImplementedError
+        case _:
+            raise ValueError
+    return state_service
+
+
+def run_etl(ignore_exceptions: bool = False) -> None:
+    etl = YandexTrackerETL(
+        tracker_client=YandexTrackerClient(),
+        clickhouse_client=ClickhouseClient(),
+        statekeeper=configure_state_service(),
+    )
+    etl.run(
+        stateful=config.stateful,
+        queues=config.tracker.search.queues,
+        search_query=config.tracker.search.query,
+        search_range=config.tracker.search.range,
+        limit=config.tracker.search.per_page_limit,
+        ignore_exceptions=ignore_exceptions,
+        auto_deduplicate=config.clickhouse.auto_deduplicate,
+    )
 
 
 def main() -> None:
     configure_sentry()
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     scheduler.start()
     scheduler.add_job(
-        export_cycle_time,
+        run_etl,
         trigger="interval",
         name="issues_cycle_time_exporter",
-        minutes=int(TRACKER_ISSUES_UPDATE_INTERVAL),
+        minutes=int(config.etl_interval_minutes),
         max_instances=1,
         next_run_time=datetime.now() + timedelta(seconds=5)
     )

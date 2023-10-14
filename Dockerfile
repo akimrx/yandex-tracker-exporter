@@ -1,15 +1,18 @@
-FROM python:3.7-slim
+FROM python:3.10-slim
 LABEL maintainer="a.faskhutdinov@yclients.tech"
 LABEL name="tools/tracker-exporter"
 
 ENV DEBIAN_FRONTEND noninteractive
-
-# Configure timezone
-RUN apt-get -qq update
-RUN apt-get install -yqq tzdata
 ENV TZ=Europe/Moscow
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-RUN dpkg-reconfigure -f noninteractive tzdata
+
+# Prepare environment & packages
+RUN apt-get -qq update && \
+    apt-get install -yqq tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Configure exporter
 RUN mkdir -p /opt/exporter

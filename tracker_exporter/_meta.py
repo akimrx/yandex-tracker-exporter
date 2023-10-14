@@ -1,0 +1,8 @@
+version = "1.0.0"
+url = "https://github.com/akimrx/yandex-tracker-exporter"
+download_url = "https://pypi.org/project/tracker-exporter/"
+appname = "yandex_tracker_exporter"
+description = "Yandex.Tracker issue metrics exporter"
+author = "Akim Faskhutdinov"
+author_email = "akimstrong@yandex.ru"
+license = "MIT"
