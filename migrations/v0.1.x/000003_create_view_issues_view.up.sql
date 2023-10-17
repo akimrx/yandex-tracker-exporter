@@ -1,0 +1,4 @@
+CREATE VIEW IF NOT EXISTS `issues_view` AS
+SELECT *
+FROM `issues`
+FINAL

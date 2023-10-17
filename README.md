@@ -1,15 +1,25 @@
-# Yandex.Tracker Exporter
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tracker-exporter.svg)](https://pypi.org/project/tracker-exporter/)
+[![PyPi Package](https://img.shields.io/pypi/v/tracker-exporter.svg)](https://pypi.org/project/tracker-exporter/)
+[![Codecov](https://codecov.io/gh/akimrx/yandex-tracker-exporter/branch/master/graph/badge.svg)](https://app.codecov.io/gh/akimrx/yandex-tracker-exporter)
+[![Tests](https://github.com/akimrx/yandex-tracker-exporter/workflows/Tests/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
+[![PyPI](https://github.com/akimrx/yandex-tracker-exporter/workflows/PyPI/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
+[![Docker](https://github.com/akimrx/yandex-tracker-exporter/workflows/Docker/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
 
-Export issue metadata & agile metrics to OLAP data storage. Metrics based on issue changelog.
 
-> This is a working example of collecting metadata and metrics from Yandex.Tracker for analytics, based on the first version of the internal private tool.
+# Yandex.Tracker ETL
+
+Export issue metadata & agile metrics, transform and load to OLAP data storage. Metrics based on issue changelog.  
+
+⚠️ **Important**  
+**Versions 1.x.x incompatible with 0.1.x. New versions works only on Python >= 3.10**
+
 > You can fork this repository and refine the tool the way you want. Or use it as it is - this will allow you to build basic analytics on the tasks from Yandex.Tracker.
 
-## Self-hosted arch example
+## On-premise arch example
 
 ![](/docs/images/agile_metrics.png)
 
-So, you can install Clickhouse with Clickhouse Proxy via Ansible role inside project.  
+So, you can install Clickhouse with Proxy via [Ansible role inside project (previous versions)](https://github.com/akimrx/yandex-tracker-exporter/tree/v0.1.19/ansible).  
 Edit the inventory file `ansible/inventory/hosts.yml` and just run ansible-playbook.
 
 > **Attention:**
@@ -22,6 +32,8 @@ pip3 install -r requirements-dev.txt
 cd ansible
 ansible-playbook -i inventory/hosts.yml playbooks/clickhouse.yml --limit agile
 ```
+
+Also, you can use [this extended Clickhouse role](https://github.com/akimrx/ansible-clickhouse-role)
 
 ## Usage
 
@@ -36,25 +48,20 @@ source venv/bin/activate
 python3 setup.py install
 
 # configure environment variables
-export EXPORTER_TRACKER_TOKEN="xxxx"
-export EXPORTER_TRACKER_ORG_ID="123456"
-
-export EXPORTER_TRACKER_ISSUES_SEARCH_RANGE="6h"
-export EXPORTER_TRACKER_FETCH_INTERVAL=30
-
-export EXPORTER_CLICKHOUSE_USER="default"
-export EXPORTER_CLICKHOUSE_PASSWORD="strongpassword"
-export EXPORTER_CLICKHOUSE_HOST="clickhouse01.example.com"
-export EXPORTER_CLICKHOUSE_HTTP_PORT="8121"
-
-export EXPORTER_LOGLEVEL="info"
-export EXPORTER_ENABLE_UPLOAD=true
+export EXPORTER_TRACKER__TOKEN=your_token
+export EXPORTER_TRACKER__CLOUD_ORG_ID=your_org_id
+export EXPORTER_CLICKHOUSE__HOST=localhost
+export EXPORTER_CLICKHOUSE__PORT=8123
+export EXPORTER_STATEFUL="true"
+export EXPORTER_STATE__STORAGE=jsonfile
+export EXPORTER_STATE__JSONFILE_STRATEGY=local
+export EXPORTER_STATE__JSONFILE_PATH=./state.json
 
 # run
 tracker-exporter
 ```
 
-#### Install from pypi
+#### Install from PyPI
 
 ```bash
 pip3 install tracker-exporter
@@ -74,14 +81,13 @@ tracker-exporter --env-file /home/akimrx/tracker/.settings
 
 ```bash
 
-cd yandex-tracker-exporter
-touch .env  # prepare the environment variables file (dotenv), like the example above
-docker-compose up -d --build
+cd yandex-tracker-exporter/docker
+docker-compose up -d
 docker logs tracker-exporter -f
 ```
 
 
-## Serverless arch example
+## Yandex.Cloud – Cloud Functions
 
 ![](/docs/images/agile_metrics_cloud.png)
 
@@ -100,24 +106,25 @@ docker logs tracker-exporter -f
 
 > How to: https://cloud.yandex.com/en/docs/functions/quickstart/create-function/python-function-quickstart
 
-* Use Python >= 3.7
+* Use Python >= 3.10
 * Copy/paste example content from `examples/serverless` ([code](/examples/serverless/))
 * Set entrypoint: `main.handler` (for code from examples)
 * Set function timeout to `600`, because the launch can be long if there are a lot of updated issues during the collection period
 * Set memory to `512MB` or more
-* Add environment variables (see variables block [here](#environment-variables-settings))
-    ```bash
-    EXPORTER_TRACKER_TOKEN=XXXXXXXXXXXXXXXX
-    EXPORTER_TRACKER_ORG_ID=123456
-    EXPORTER_CLICKHOUSE_PROTO=https
-    EXPORTER_CLICKHOUSE_CERT=/etc/ssl/certs/ca-certificates.crt
-    EXPORTER_CLICKHOUSE_HTTP_PORT=8443
-    EXPORTER_CLICKHOUSE_HOST=rc1b-xxxxxx.mdb.yandexcloud.net
-    EXPORTER_CLICKHOUSE_DATABASE=agile
-    EXPORTER_CLICKHOUSE_USER=agile
-    EXPORTER_CLICKHOUSE_PASSWORD=xxxx
-    EXPORTER_ENABLE_UPLOAD=true
-    EXPORTER_ISSUES_SEARCH_INTERVAL=2h
+* Add environment variables (see variables block [here](#configuration-via-environment-variables))
+```bash
+EXPORTER_TRACKER__TOKEN=XXXXXXXXXXXXXXXX
+EXPORTER_TRACKER__CLOUD_ORG_ID=123456
+EXPORTER_TRACKER__SEARCH__RANGE=2h
+EXPORTER_ENABLE__UPLOAD="true"
+EXPORTER_CLICKHOUSE__PROTO=https
+EXPORTER_CLICKHOUSE__CACERT_PATH=/etc/ssl/certs/ca-certificates.crt
+EXPORTER_CLICKHOUSE__PORT=8443
+EXPORTER_CLICKHOUSE__HOST=rc1b-xxxxxx.mdb.yandexcloud.net
+EXPORTER_CLICKHOUSE__USER=agile
+EXPORTER_CLICKHOUSE__PASSWORD=xxxx
+```
+
 * Release function
 * Run test
 * See logs
@@ -127,14 +134,15 @@ docker logs tracker-exporter -f
 
 ##### Serverless database connection without public access
 If you don't want to enable clickhouse public access, use service account with such permissions - `serverless.mdbProxies.user` and set environment variables below:
+
 ```bash
-EXPORTER_CLICKHOUSE_HOST=akfd3bhqk3xxxxxxxxxxx.clickhouse-proxy.serverless.yandexcloud.net
-EXPORTER_CLICKHOUSE_SERVERLESS_PROXY_ID=akfd3bhqk3xxxxxxxxxxxxx
+EXPORTER_CLICKHOUSE__HOST=akfd3bhqk3xxxxxxxxxxx.clickhouse-proxy.serverless.yandexcloud.net
+EXPORTER_CLICKHOUSE__SERVERLESS_PROXY_ID=akfd3bhqk3xxxxxxxxxxxxx
 ```
 
 > How to create database connection: https://cloud.yandex.com/en/docs/functions/operations/database-connection
 
-Also, the `EXPORTER_CLICKHOUSE_PASSWORD` variable with service account must be replaced by IAM-token. Keep this in mind. 
+Also, the `EXPORTER_CLICKHOUSE__PASSWORD` variable with service account must be replaced by IAM-token. Keep this in mind. 
 Probably, you should get it in the function code, because the IAM-token works for a limited period of time.
 
 ### Create Trigger
@@ -149,10 +157,15 @@ Probably, you should get it in the function code, because the IAM-token works fo
 * Save trigger
 
 
+## Yandex.Cloud – Serverless Containers
+
+TODO
+
+
 # Visualization
 
-You can use any BI tool for visualization, for example:
-- Yandex DataLens
+You can use any BI/observability tool for visualization, for example:
+- Yandex DataLens (btw, this is [opensource](https://github.com/datalens-tech/datalens))
 - Apache Superset
 - PowerBI
 - Grafana
@@ -184,7 +197,8 @@ mv migrate /usr/local/bin
 
 ## Run migration
 
-Example bash script
+Example bash script below.  
+See full example script [here](/data-migrate.sh)
 
 ```bash
 #!/usr/bin/env bash
@@ -221,50 +235,107 @@ prepare_migration
 run_migration
 ```
 
-# Environment variables (settings)
+# Configuration via environment variables
 
-| variable | require? | default | description |
-|----------|----------|---------|-------------|
-| `EXPORTER_LOGLEVEL` | ❌ | `info` | One of: `debug`, `info`, `warning`, `error`, `exception` |
-| `EXPORTER_ENABLE_UPLOAD` | ❌ | `false` | Enable/disable upload to Clickhouse storage |
-| `EXPORTER_MONITORING_ENABLED` | ❌ | `false` | Enable send statsd metrics |
-| `EXPORTER_MONITORING_HOST` | ❌ | `localhost` | Monitoring statsd hostname |
-| `EXPORTER_MONITORING_PORT` | ❌ | `8125` | Monitoring statsd UDP port |
-| `EXPORTER_MONITORING_PREFIX` | ❌ | `tracker_exporter` | Prefix for all sent metrics, i.e.: `{prefix}_{metric_name}` |
-| `EXPORTER_SENTRY_ENABLED` | ❌ | `false` | Send exceptions and errors to Sentry |
-| `EXPORTER_SENTRY_DSN` | ❌ | None | Sentry DSN like https://{id}@{sentry_url} |
-| `EXPORTER_TRACKER_TOKEN` | ✅ | None | Yandex.Tracker OAuth token |
-| `EXPORTER_TRACKER_ORG_ID` | ✅ | None | Yandex.Tracker organization ID for Yandex.Tracker |
-| `EXPORTER_TRACKER_ISSUES_SEARCH_RANGE` | ❌ | `4h` | The query search range for recently updated issues, i.e: `Updated >= now() - {VARIABLE}` |
-| `EXPORTER_TRACKER_ISSUES_SEARCH_QUERY` | ❌ | None | The query search string like `Queue: SRE and status: closed` |
-| `EXPORTER_TRACKER_ISSUES_FETCH_INTERVAL` | ❌ | `120` | Exporter job run interval in minutes for issue and metrics |
-| `EXPORTER_CLOSED_ISSUES_STATUSES` | ❌ | `closed,rejected,released,resolved,cancelled` | Lowercase comma-separated status, which will be flagged as `is_closed` |
-| `EXPORTER_CLICKHOUSE_PROTO` | ❌ | `http` | Clickhouse protocol - HTTP or HTTPS |
-| `EXPORTER_CLICKHOUSE_HOST` | ❌ | `localhost` | Clickhouse hostname |
-| `EXPORTER_CLICKHOUSE_HTTP_PORT` | ❌ | `8123` | Clickhouse HTTP(S) port |
-| `EXPORTER_CLICKHOUSE_USER` | ❌ | `default` | Clickhouse read-write username |
-| `EXPORTER_CLICKHOUSE_PASSWORD` | ✅ | None | Clickhouse user password. **If your clickhouse/user can work without password just ignore this variable.** |
-| `EXPORTER_CLICKHOUSE_CACERT_PATH` | ❌ | `None` | Path to CA certificate. Only for HTTPS |
-| `EXPORTER_CLICKHOUSE_SERVERLESS_PROXY_ID` | ❌ | `None` | Database connection ID. Only for serverless |
-| `EXPORTER_CLICKHOUSE_DATABASE` | ❌ | `agile` | Database for exporter CH tables |
-| `EXPORTER_CLICKHOUSE_ISSUES_TABLE` | ❌ | `issues` | Table when store issues metadata |
-| `EXPORTER_CLICKHOUSE_ISSUE_METRICS_TABLE` | ❌ | `issue_metrics` | Table when store issue metrics |
-| `EXPORTER_WORKHOURS_START` | ❌ | 9 | The beginning of working hours for calculating business hour metrics |
-| `EXPORTER_WORKHOURS_END` | ❌ | 22 | The end of working hours for calculating business hour metrics |
+See config declaration [here](/src/config.py)
+
+## General settings
+
+| variable | description |
+|----------|-------------|
+| `EXPORTER_STATEFUL` | Enable stateful mode. Required `EXPORTER_STATE__*` params. Default is `False`
+| `EXPORTER_STATEFUL_INITIAL_RANGE` | Initial search range when unknown last state. Default: `6mo`
+| `EXPORTER_LOGLEVEL` | ETL log level. Default: `info` |
+| `EXPORTER_WORKDAYS` | Workdays for calculate business time. 0 - mon, 6 - sun. Default: `[0,1,2,3,4]`
+| `EXPORTER_BUSINESS_HOURS_START` | Business hours start for calculate business time. Default: `09:00:00`
+| `EXPORTER_BUSINESS_HOURS_END` | Business hours end for calculate business time. Default: `22:00:00`
+| `EXPORTER_DATETIME_RESPONSE_FORMAT` | Yandex.Tracker datetime format in responses. Default: `%Y-%m-%dT%H:%M:%S.%f%z`
+| `EXPORTER_DATETIME_QUERY_FORMAT` | Datetime format for search queries. Default: `%Y-%m-%d %H:%M:%S`
+| `EXPORTER_DATETIME_CLICKHOUSE_FORMAT` | Datetime format for Clickhouse. Default: `%Y-%m-%dT%H:%M:%S.%f`
+| `EXPORTER_ETL_INTERVAL_MINUTES` | Interval between run ETL. Default: `30` (minutes)
+| `EXPORTER_CLOSED_ISSUE_STATUSES` | Statuses for mark issue as closed. Default: `closed,rejected,resolved,cancelled,released`
+| `EXPORTER_NOT_NULLABLE_FIELDS` | Fields that should never be null (e.g. dates). Default: all datetime fields
+
+## Tracker settings
+
+| variable | description |
+|----------|-------------|
+| `EXPORTER_TRACKER__LOGLEVEL` | Log level for Yandex.Tracker SDK. Default: `warning`
+| `EXPORTER_TRACKER__TOKEN` | OAuth2 token. Required if `EXPORTER_TRACKER__IAM_TOKEN` is not passed
+| `EXPORTER_TRACKER__ORG_ID` | Yandex360 organization ID. Required if `EXPORTER_TRACKER__CLOUD_ORG_ID` is not passed
+| `EXPORTER_TRACKER__IAM_TOKEN` | Yandex.Cloud IAM token. Required if `EXPORTER_TRACKER__TOKEN` is not passed
+| `EXPORTER_TRACKER__CLOUD_ORG_ID` | Yandex.Cloud organization ID. Required if `EXPORTER_TRACKER__ORG_ID` is not passed
+| `EXPORTER_TRACKER__TIMEOUT` | Yandex.Tracker HTTP requests timeout. Default: `10` (sec)
+| `EXPORTER_TRACKER__MAX_RETRIES` | Yandex.Tracker HTTP requests max retries. Default: `10`
+| `EXPORTER_TRACKER__LANGUAGE` | Yandex.Tracker language. Default: `en`
+| `EXPORTER_TRACKER__TIMEZONE` | Yandex.Tracker timezone. Default: `Europe/Moscow`
+| `EXPORTER_TRACKER__SEARCH__QUERY` | Custom query for search issues. This variable has the highest priority and overrides other search parameters. Default is empty
+| `EXPORTER_TRACKER__SEARCH__RANGE` | Search issues window. Has no effect in stateful mode. Default: `2h`
+| `EXPORTER_TRACKER__SEARCH__QUEUES` | Include or exclude queues in search. Example: `DEV,SRE,!TEST,!TRASH` Default is empty
+| `EXPORTER_TRACKER__SEARCH__PER_PAGE_LIMIT` | Search results per page. Default: `100`
+
+## Clickhouse settings
+
+| variable | description |
+|----------|-------------|
+| `EXPORTER_CLICKHOUSE__ENABLE_UPLOAD` | Enable upload data to Clickhouse. Default is `True`
+| `EXPORTER_CLICKHOUSE__HOST` | Clickhouse host. Default: `localhost`
+| `EXPORTER_CLICKHOUSE__PROTO` | Clickhouse protocol: http or https. Default: `http`
+| `EXPORTER_CLICKHOUSE__PORT` | Clickhouse HTTP(S) port. Default: `8123`
+| `EXPORTER_CLICKHOUSE__CACERT_PATH` | Path to CA cert. Only for HTTPS proto. Default is empty
+| `EXPORTER_CLICKHOUSE__SERVERLESS_PROXY_ID` | Yandex Cloud Functions proxy ID. Default is empty
+| `EXPORTER_CLICKHOUSE__USERNAME` | Clickhouse username. Default: `default`
+| `EXPORTER_CLICKHOUSE__PASSWORD` | Clickhouse password. Can be empty. Default is empty
+| `EXPORTER_CLICKHOUSE__DATABASE` | Clickhouse database. Default: `agile`
+| `EXPORTER_CLICKHOUSE__ISSUES_TABLE` | Clickhouse table for issues metadata. Default: `issues`
+| `EXPORTER_CLICKHOUSE__ISSUE_METRICS_TABLE` | Clickhouse table for issue metrics. Default: `issue_metrics`
+| `EXPORTER_CLICKHOUSE__AUTO_DEDUPLICATE` | Execute `OPTIMIZE` after each `INSERT`. Default is `True`
+
+## State settings
+
+| variable | description |
+|----------|-------------|
+| `EXPORTER_STATE__STORAGE` | Storage type for StateKeeper. Can be: `jsonfile`, `redis`, `custom`. Default: `jsonfile`
+| `EXPORTER_STATE__REDIS_DSN` | Connection string for Redis state storage when storage type is `redis`. Default is empty.
+| `EXPORTER_STATE__JSONFILE_STRATEGY` | File store strategy for `jsonfile` storage type. Can be `s3` or `local`. Default: `local`
+| `EXPORTER_STATE__JSONFILE_PATH` | Path to JSON state file. Default: `./state.json`
+| `EXPORTER_STATE__JSONFILE_S3_BUCKET` | Bucket for `s3` strategy. Default is empty
+| `EXPORTER_STATE__JSONFILE_S3_REGION` | Region for `s3` strategy. Default is `eu-east-1`
+| `EXPORTER_STATE__JSONFILE_S3_ENDPOINT` | Endpoint URL for `s3` strategy. Default is empty
+| `EXPORTER_STATE__JSONFILE_S3_ACCESS_KEY` | AWS access key id for `s3` strategy. Default is empty
+| `EXPORTER_STATE__JSONFILE_S3_SECRET_KEY` | AWS secret key for `s3` strategy. Default is empty
+| `EXPORTER_STATE__CUSTOM_STORAGE_PARAMS` | Settings for custom storage params as `dict`. Default: `{}`
+
+## Observability settings
+
+| variable | description |
+|----------|-------------|
+| `EXPORTER_MONITORING__METRICS_ENABLED` | Enable send statsd tagged metrics. Default is `False`
+| `EXPORTER_MONITORING__METRICS_HOST` | DogStatsD / statsd host. Default: `localhost`
+| `EXPORTER_MONITORING__METRICS_PORT` | DogStatsD / statsd port. Default: `8125`
+| `EXPORTER_MONITORING__METRICS_BASE_PREFIX` | Prefix for metrics name. Default: `tracker_exporter`
+| `EXPORTER_MONITORING__METRICS_BASE_LABELS` | Tags for metrics. Default: `["project:internal",]`
+| `EXPORTER_MONITORING__SENTRY_ENABLED` | Enable send exception stacktrace to Sentry. Default is empty
+| `EXPORTER_MONITORING__SENTRY_DSN` | Sentry DSN. Default is empty
 
 
 # Monitoring
 
+Based on DogStatsD tagged format. VictoriaMetrics compatible.
+
 | Metric name | Metric type | Labels | Description |
 |-------------|-------------|--------|-------------|
-| `tracker_exporter_clickhouse_insert_time_seconds` | `time` | `project` | Insert query time |
-| `tracker_exporter_clickhouse_optimize_time_seconds` | `time` | `project` | Optimize query time |
-| `tracker_exporter_clickhouse_inserted_rows` | `gauge` | `project`, `database`, `table` | Inserted rows to Clickhouse from last update |
-| `tracker_exporter_cycle_time_total_processing_time_seconds` | `time` | `project` | Total issues processing time |
-| `tracker_exporter_issue_transform_time_seconds` | `time` | `project` | Time of transformation of one issue into an object |
-| `tracker_exporter_issues_search_time_seconds` | `time` | `project` | Yandex.Tracker search time |
-| `tracker_exporter_issues_processing_time_seconds` | `time` | `project` | Time of transformation of batch issues into objects |
-| `tracker_exporter_issues_total_processed_count` | `count` | `project`, `source` | Processed issues from Yandex.Tracker |
-| `tracker_exporter_issues_without_metrics` | `gauge` | `project` | Issues with empty metrics |
-| `tracker_exporter_upload_status` | `gauge` | `project` | Status of data upload to storage |
-| `tracker_exporter_last_update_timestamp` | `timestamp gauge` | `project` | Timestamp of the last data upload to the storage |
+| `tracker_exporter_issue_transform_time_seconds` | time | - | Duration of transform per task (data packing to the model) |
+| `tracker_exporter_issues_total_processed_count` | count | - | Total issues processed |
+| `tracker_exporter_issues_search_time_seconds` | time | - | Yandex.Tracker search duration time in seconds |
+| `tracker_exporter_issues_without_metrics` | count | - | Issues with empty metrics (no changelog) |
+| `tracker_exporter_issue_prefetch_seconds` | time | - | Pre-transform data duration in seconds |
+| `tracker_exporter_comments_fetch_seconds` | time | - | Comments fetch duration in seconds |
+| `tracker_exporter_etl_duration_seconds` | time | - | ETL full pipeline duration in seconds |
+| `tracker_exporter_etl_upload_status` | gauge | - | Last upload status, 1 - success, 2 - fail |
+| `tracker_exporter_export_and_transform_time_seconds` | time | - | Overall export and transform duration in seconds |
+| `tracker_exporter_upload_to_storage_time_seconds` | time | - | Overall insert duration time in seconds |
+| `tracker_exporter_last_update_timestamp` | gauge | - | Last data update timestamp |
+| `tracker_exporter_clickhouse_insert_time_seconds` | time | database, table | Insert per table duration time in seconds |
+| `tracker_exporter_clickhouse_inserted_rows` | count | database, table | Inserted rows per table |
+| `tracker_exporter_clickhouse_deduplicate_time_seconds` | time | database, table | Optimize execute time duration in seconds |

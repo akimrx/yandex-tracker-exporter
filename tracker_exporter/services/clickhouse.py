@@ -1,58 +1,56 @@
 import json
 import logging
 
-from typing import List, Dict, Union
+from typing import List, Dict
 
-from requests import Response
 import requests
+from requests import Response, ConnectionError, Timeout
 
-from tracker_exporter.errors import ClickhouseError, NetworkError, TimedOut
-from tracker_exporter.utils.helpers import retry
-from tracker_exporter.services.monitoring import DogStatsdClient
-from tracker_exporter.models.enums import ClickhouseProto
-from tracker_exporter.defaults import (
-    CLICKHOUSE_PROTO,
-    CLICKHOUSE_CACERT_PATH,
-    CLICKHOUSE_SERVERLESS_PROXY_ID
-)
+from tracker_exporter.exceptions import ClickhouseError
+from tracker_exporter.utils.helpers import backoff
+from tracker_exporter.models.base import ClickhouseProto
+from tracker_exporter.config import config, monitoring
 
 logger = logging.getLogger(__name__)
-monitoring = DogStatsdClient()
 
 
 class ClickhouseClient:
     """This class provide simple facade interface for Clickhouse."""
 
-    def __init__(self,  # pylint: disable=W0102
-                 host: str,
-                 port: int = 8123,
-                 user: str = "default",
-                 password: str = None,
-                 proto: ClickhouseProto = CLICKHOUSE_PROTO,
-                 cacert: str = CLICKHOUSE_CACERT_PATH,
-                 serverless_proxy_id: str = CLICKHOUSE_SERVERLESS_PROXY_ID,
-                 params: dict = {},
-                 http_timeout: int = 10) -> None:
-
+    def __init__(
+        self,
+        host: str = config.clickhouse.host,
+        port: int = config.clickhouse.port,
+        username: str = config.clickhouse.username,
+        password: str = config.clickhouse.password,
+        proto: ClickhouseProto = config.clickhouse.proto,
+        cacert: str = config.clickhouse.cacert_path,
+        serverless_proxy_id: str = config.clickhouse.serverless_proxy_id,
+        params: dict = {},
+        http_timeout: int = 10
+    ) -> None:
         self.host = host
         self.port = port
-        self.user = user
+        self.username = username
         self.password = password
         self.proto = proto
         self.cacert = cacert
         self.serverless_proxy_id = serverless_proxy_id
         self.params = params
         self.timeout = int(http_timeout)
-        self.headers = {
-            "Content-Type": "application/json",
-            "X-Clickhouse-User": self.user
-        }
+        self.headers = {}
 
-        if self.password is not None:
-            self.headers["X-Clickhouse-Key"] = self.password
-
+        self._prepare_headers()
         if self.proto == ClickhouseProto.HTTPS:
             assert self.cacert is not None
+
+    def _prepare_headers(self):
+        self.headers = {
+            "Content-Type": "application/json",
+            "X-Clickhouse-User": self.username
+        }
+        if self.password is not None:
+            self.headers["X-Clickhouse-Key"] = self.password
 
     def _prepare_query_params(self):
         params = self.params.copy()
@@ -70,8 +68,8 @@ class ClickhouseClient:
 
         return params
 
-    @retry((NetworkError, TimedOut))
-    def execute(self, query: str) -> Union[None, Response]:
+    @backoff((ConnectionError, Timeout))
+    def execute(self, query: str) -> Response | None:
         url = f"{self.proto}://{self.host}:{self.port}"
         params = self._prepare_query_params()
 
@@ -85,10 +83,8 @@ class ClickhouseClient:
                 response = requests.post(
                     url=url, headers=self.headers, params=params, data=query, timeout=self.timeout
                 )
-        except requests.Timeout as exc:
-            raise TimedOut() from exc
-        except requests.ConnectionError as exc:
-            raise NetworkError(exc) from exc
+        except (Timeout, ConnectionError):
+            raise
         except Exception as exc:
             logger.exception(
                 f"Could not execute query in Clickhouse: {exc}"
@@ -104,19 +100,25 @@ class ClickhouseClient:
                 raise ClickhouseError(msg)
         return response
 
-    # TODO: add sort by partition key (i.e. `updated_at`) for best insert perfomance
-    @monitoring.send_time_metric("clickhouse_insert_time_seconds")
-    def insert_batch(self, database: str, table: str, payload: List[Dict]) -> Union[None, Response]:
+    # TODO (akimrx): add sort by partition key (i.e. `updated_at`)? for best insert perfomance
+    def insert_batch(self, database: str, table: str, payload: List[Dict]) -> Response | None:
         if not isinstance(payload, list):
             raise ClickhouseError("Payload must be list")
 
-        _tags = [f"database:{database}", f"table:{table}"]
+        tags = [f"database:{database}", f"table:{table}"]
+        batch_size = len(payload)
         data = " ".join([json.dumps(row) for row in payload])
-        logger.debug(f"Inserting batch: {data}")
-        query_result = self.execute(f"INSERT INTO {database}.{table} FORMAT JSONEachRow {data}")
-        monitoring.send_gauge_metric("clickhouse_inserted_rows", len(payload), _tags)
+        logger.debug(f"Inserting batch ({batch_size}): {data}")
+
+        with monitoring.send_time_metric("clickhouse_insert_time_seconds", tags):
+            query_result = self.execute(
+                f"INSERT INTO {database}.{table} FORMAT JSONEachRow {data}"
+            )
+
+        monitoring.send_gauge_metric("clickhouse_inserted_rows", batch_size, tags)
         return query_result
 
-    @monitoring.send_time_metric("clickhouse_deduplicate_time_seconds")
-    def deduplicate(self, database: str, table: str) -> Union[None, Response]:
-        return self.execute(f"OPTIMIZE TABLE {database}.{table} FINAL")
+    def deduplicate(self, database: str, table: str) -> None:
+        tags = [f"database:{database}", f"table:{table}"]
+        with monitoring.send_time_metric("clickhouse_deduplicate_time_seconds", tags):
+            self.execute(f"OPTIMIZE TABLE {database}.{table} FINAL")

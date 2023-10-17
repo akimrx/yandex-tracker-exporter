@@ -1,7 +1,6 @@
 wheel
 twine
-ansible==2.10.*
-molecule==3.6.*
-molecule-docker==1.1.*
-pytest==7.1.*
-pytest-testinfra==6.7.*
+pytest
+pytest-cov
+bandit
+settings_doc

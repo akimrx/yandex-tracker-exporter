@@ -1,4 +1,0 @@
----
-- hosts: agile
-  roles:
-    - role: clickhouse

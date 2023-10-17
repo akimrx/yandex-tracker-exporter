@@ -1,0 +1,32 @@
+version: '3.1'
+
+services:
+  tracker-exporter:
+    container_name: tracker-exporter
+    hostname: tracker-exporter
+    restart: unless-stopped
+    build: .
+    volumes:
+      - ./.env:/opt/exporter/.env:ro
+    command: |
+      tracker-exporter --env-file /opt/exporter/.env
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.3
+    container_name: clickhouse
+    hostname: clickhouse
+    restart: unless-stopped
+    volumes:
+      - "./clickhouse:/var/lib/clickhouse"
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+
+  clickhouse-migrator:
+    image: busybox
+    container_name: migrator
+    restart: no
+    volumes:
+      - ./data-migrate.sh:/opt/data-migrate.sh
+    command: |
+      /opt/data-migrate.sh

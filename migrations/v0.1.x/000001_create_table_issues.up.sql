@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS `issues`
 (
-    `version` DateTime64(3, 'UTC') DEFAULT now() COMMENT 'Row version',
+    `version` DateTime DEFAULT now(),
 
     `queue` LowCardinality(String) COMMENT 'Queue key',
     `title` String DEFAULT '' COMMENT 'Issue summary',
@@ -16,15 +16,14 @@ CREATE TABLE IF NOT EXISTS `issues`
 
     `tags` Array(String) COMMENT 'Issue labels',
     `components` Array(String) COMMENT 'Issue components',
-    `project` LowCardinality(String) DEFAULT '' COMMENT 'Related project',
 
-    `created_at` DateTime64(3, 'UTC') COMMENT 'Issue creation date',
-    `updated_at` DateTime64(3, 'UTC') COMMENT 'Date of the last update of the issue',
-    `deadline` Date DEFAULT 0 COMMENT 'Deadline for completing the issue',
-    `closed_at` DateTime64(3, 'UTC') DEFAULT 0 COMMENT 'Closing date of the issue without resolution, based on custom closing statuses',
-    `resolved_at` DateTime64(3, 'UTC') DEFAULT 0 COMMENT 'Closing date of the issue with the resolution',
-    `start_date` Date DEFAULT 0 COMMENT 'Start date (fact, manual field, gantt)',
-    `end_date` Date DEFAULT 0 COMMENT 'End date (fact, manual field, gantt)',
+    `created_at` Date COMMENT 'Issue creation date',
+    `updated_at` Date COMMENT 'Date of the last update of the issue',
+    `deadline` Date DEFAULT toDate('1970-01-01') COMMENT 'Deadline for completing the issue',
+    `closed_at` Date DEFAULT toDate('1970-01-01') COMMENT 'Closing date of the issue without resolution, based on custom closing statuses',
+    `resolved_at` Date DEFAULT toDate('1970-01-01') COMMENT 'Closing date of the issue with the resolution',
+    `start_date` Date DEFAULT toDate('1970-01-01') COMMENT 'Start date (fact, manual field, gantt)',
+    `end_date` Date DEFAULT toDate('1970-01-01') COMMENT 'End date (fact, manual field, gantt)',
 
     `is_subtask` UInt8 DEFAULT 0 COMMENT 'Subtask flag',
     `is_closed` UInt8 DEFAULT 0 COMMENT 'Issue completion flag (based on custom closing statuses)',
@@ -33,12 +32,7 @@ CREATE TABLE IF NOT EXISTS `issues`
     `story_points` Float32 DEFAULT 0.0 COMMENT 'Estimating the cost of the issue',
     `sprints` Array(String) COMMENT 'Sprints in which the issue participated',
     `parent_issue_key` String DEFAULT '' COMMENT 'The key of the parent issue, like TEST-1',
-    `epic_issue_key` String DEFAULT '' COMMENT 'Epic key, like GOAL-1',
-
-    `aliases` Array(String) COMMENT 'All previous issue keys',
-    `was_moved` UInt8 DEFAULT 0 COMMENT 'Has the task been moved from another queue',
-    `moved_at` DateTime64(3, 'UTC') DEFAULT 0 COMMENT 'The date the queue was changed if the task was moved',
-    `moved_by` String DEFAULT '' COMMENT 'The employee who moved the task'
+    `epic_issue_key` String DEFAULT '' COMMENT 'Epic key, like GOAL-1'
 )
 ENGINE = ReplacingMergeTree(version)
 PARTITION BY toYYYYMM(updated_at)

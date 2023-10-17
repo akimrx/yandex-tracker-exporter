@@ -1,4 +1,9 @@
 scripts/*
+clickhouse
+migrate
+test.json
+state.json
+.ruff*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

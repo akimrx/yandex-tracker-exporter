@@ -1,30 +1,29 @@
 import re
 import time
 import logging
+import random
+import pytz
 
 from functools import wraps
-from typing import Union, Tuple
-from datetime import datetime
+from typing import Union, Tuple, Type, Callable, Any
+from datetime import datetime, timezone as dt_timezone
 
 import holidays
 import pandas as pd
 import businesstimedelta
 
-from tracker_exporter.models.enums import TimeDeltaOut
-from tracker_exporter.defaults import (
-    NOT_NULLABLE_FIELDS,
-    WORKDAYS,
-    BUSINESS_HOURS_START,
-    BUSINESS_HOURS_END,
-    TRACKER_DEFAULT_DATETIME_FORMAT
-)
+from tracker_exporter._typing import DateTimeISO8601Str, DateStr, _Sequence
+from tracker_exporter.models.base import TimeDeltaOut
+from tracker_exporter.config import config
 
 logger = logging.getLogger(__name__)
 
 
-def get_timedelta(end_time: datetime,
-                  start_time: datetime,
-                  out: TimeDeltaOut = TimeDeltaOut.SECONDS) -> int:
+def get_timedelta(
+    end_time: datetime,
+    start_time: datetime,
+    out: TimeDeltaOut = TimeDeltaOut.SECONDS
+) -> int:
     """Simple timedelta between dates."""
     assert isinstance(start_time, datetime)
     assert isinstance(end_time, datetime)
@@ -37,11 +36,13 @@ def get_timedelta(end_time: datetime,
     return delta
 
 
-def calculate_time_spent(start_date: datetime,
-                         end_date: datetime,
-                         busdays_only: bool = False,
-                         workdays: list = WORKDAYS,
-                         business_hours: Tuple = (BUSINESS_HOURS_START, BUSINESS_HOURS_END,)) -> int:
+def calculate_time_spent(
+    start_date: datetime,
+    end_date: datetime,
+    busdays_only: bool = False,
+    workdays: list = config.workdays,
+    business_hours: Tuple = (config.business_hours_start, config.business_hours_end,)
+) -> int:
     """
     Calculate timedelta between dates with business days support.
     Weekdays: Monday is 0, Sunday is 6, so weekends (5, 6) mean (Sat, Sun).
@@ -58,9 +59,11 @@ def calculate_time_spent(start_date: datetime,
         end_time=business_hours[1],
         working_days=workdays)
 
-
     if busdays_only:
-        logger.debug(f"Calculating workhours. Business hours: {business_hours}. {start_date}, {end_date}")
+        logger.debug(
+            f"Calculating workhours. "
+            f"Business hours: {business_hours}. {start_date}, {end_date}"
+        )
         bt = businesstimedelta.Rules([workday_rules, holiday_rules])
         result = bt.difference(start_date, end_date).timedelta.total_seconds()
     else:
@@ -70,12 +73,12 @@ def calculate_time_spent(start_date: datetime,
     return abs(int(result))
 
 
-
 def fix_null_dates(data: dict) -> dict:
+    """Clean keys with None values from dict."""
     to_remove = []
 
     for key, value in data.items():
-        if key in NOT_NULLABLE_FIELDS and (value is None or value == ""):
+        if key in config.not_nullable_fields and (value is None or value == ""):
             to_remove.append(key)
 
     for key in to_remove:
@@ -85,10 +88,12 @@ def fix_null_dates(data: dict) -> dict:
 
 
 # pylint: disable=R1710
-def validate_resource(resource: object,
-                      attribute: str,
-                      low: bool = True) -> Union[str, list, bool, int, None]:
-    """Validate Yandex.Tracker object attribute and return it if exists as string."""
+def validate_resource(
+    resource: object,
+    attribute: str,
+    low: bool = True
+) -> Any | None:
+    """Validate Yandex.Tracker object attribute and return it if exists."""
     if hasattr(resource, attribute):
         _attr = getattr(resource, attribute)
         if isinstance(_attr, str):
@@ -100,67 +105,89 @@ def validate_resource(resource: object,
 
 def to_snake_case(text: str) -> str:
     """Convert any string to `snake_case` format."""
-    if text is None or text == "":
-        return text
+    if text is None:
+        return None
+    if not isinstance(text, str):
+        raise ValueError(f"Expected string, received: {type(text)}")
+    if text.strip() == "":
+        return text.strip()
 
-    text = re.sub(r"('|\")", "", text)
-    string = re.sub(r"(_|-)+", " ", text).title().replace(" ", "")
-    output = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', string)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', output).lower()
+    text = re.sub(r'(?<=[a-z])(?=[A-Z])', '_', text)
+    text = re.sub(r'(?<=[a-z])(?=\d)', '_', text)
+    text = re.sub(r'(?<=\d)(?=[a-z])', '_', text)
+    text = re.sub(r'[^a-zA-Z0-9_]', '_', text)
+
+    return text.lower()
 
 
-def to_simple_datetime(dtime: str,
-                       source_dt_format: str = TRACKER_DEFAULT_DATETIME_FORMAT,
-                       date_only: bool = False,
-                       shift: int = 3) -> str:
-    """Return (Unicode) date format `YYYY-MM-DD HH:mm:ss` or `YYYY-MM-DD` if `date_only`."""
+def convert_datetime(
+    dtime: str,
+    source_dt_format: str = config.datetime_response_format,
+    output_format: str = config.datetime_clickhouse_format,
+    date_only: bool = False,
+    timezone: str = "UTC",
+) -> DateTimeISO8601Str | DateStr:
+    """
+    Returns ISO8601 datetime (UTC).
+    Or date format `YYYY-MM-DD` from original datetime when date_only passed.
+    """
+    logger.debug(f"Timezone set to {timezone}")
     if dtime is None:
-        logger.debug("dtime is empty, can't transform date to simple string.")
-        return
+        return None
 
+    dt = datetime.strptime(dtime, source_dt_format)
+    if dt.tzinfo is None:
+        logger.debug("Replacing datetime tzinfo to UTC")
+        dt = dt.replace(tzinfo=dt_timezone.utc)
+
+    output_datetime = dt.astimezone(pytz.timezone(timezone))
     if date_only:
-        fmt = "%Y-%m-%d"
-    else:
-        fmt = "%Y-%m-%d %H:%M:%S"
+        return output_datetime.date().strftime("%Y-%d-%m")
 
-    timestamp = time.mktime(datetime.strptime(dtime.split(".")[0], source_dt_format).timetuple())
-    if shift > 0:
-        timestamp += 60 * 60 * shift
-    elif shift < 0:
-        timestamp -= 60 * 60 * shift
-    return datetime.fromtimestamp(int(timestamp)).strftime(fmt)
+    if output_format.endswith("%f"):
+        return output_datetime.strftime(output_format)[:-3]
+    return output_datetime.strftime(output_format)
 
 
-def retry(exceptions: tuple, tries: int = 3, delay: Union[float, int] = 1, backoff: int = 3):
-    """Decorator to retry the execution of the func, if you have received the errors listed."""
-    def retry_decorator(func):
+def backoff(
+    exceptions: _Sequence[Type[Exception]],
+    base_delay: int | float = 0.5,
+    expo_factor: int | float = 2.5,
+    max_tries: int = 3,
+    jitter: bool = False,
+) -> Callable:
+    """Decorator for backoff retry function/method calls."""
+    def retry_decorator(func: Callable):
         @wraps(func)
         def func_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
+            logger.debug(f"Start func {func.__qualname__} with {max_tries} tries")
+            tries, delay = max_tries, base_delay
             counter = 0
-            while mtries > 0:
+            while tries > 0:
                 try:
                     counter += 1
                     return func(*args, **kwargs)
                 except exceptions as err:
-                    mtries -= 1
-                    if mtries == 0:
-                        logger.warning(f"{func.__name__} has failed {counter} times")
-                        raise err
+                    tries -= 1
+                    if tries == 0:
+                        logger.error(f"{func.__qualname__} has failed {counter} times")
+                        raise
                     logger.warning(
-                        f"Error in func {func.__name__}, cause: {err}. "
-                        f"Retrying ({counter}) in {mdelay} seconds..."
+                        f"Error in func {func.__qualname__}, cause: {err}. "
+                        f"Retrying ({counter}/{max_tries - 1}) in {delay:.2f}s..."
                     )
-                    time.sleep(mdelay)
-                    mdelay *= backoff
+                    if jitter:
+                        delay = random.uniform(delay / 2, delay * expo_factor)  # nosec
+                        time.sleep(delay)
+                    else:
+                        time.sleep(delay)
+                    delay *= expo_factor
         return func_retry
     return retry_decorator
 
 
 def to_human_time(seconds: Union[int, float], verbosity: int = 2) -> str:
-    """Convert seconds to human readable timedelta
-    like a `2w 3d 1h 20m`
-    """
+    """Convert seconds to human readable timedelta like a `2w 3d 1h 20m`."""
     seconds = int(seconds)
     if seconds == 0:
         return "0s"
@@ -187,6 +214,34 @@ def to_human_time(seconds: Union[int, float], verbosity: int = 2) -> str:
             result.append(f"{value}{name}")
     delta = " ".join(result[:verbosity])
     return f"-{delta}" if negative else delta
+
+
+def from_human_time(timestr: str) -> int:
+    """Convert a duration string like `2w 3d 1h 20m` to seconds."""
+
+    logger.debug(f"Received human time: {timestr}")
+    total_seconds = 0
+    patterns = [
+        (r"(\d+)y", 365 * 24 * 60 * 60),  # years
+        (r"(\d+)mo", 30 * 24 * 60 * 60),  # months
+        (r"(\d+)w", 7 * 24 * 60 * 60),  # weeks
+        (r"(\d+)d", 24 * 60 * 60),  # days
+        (r"(\d+)h", 60 * 60),  # hours
+        (r"(\d+)m", 60),  # minutes
+        (r"(\d+)s", 1)  # seconds
+    ]
+
+    for pattern, multiplier in patterns:
+        matches = re.search(pattern, timestr)
+        if matches:
+            total_seconds += int(matches.group(1)) * multiplier
+            timestr = re.sub(pattern, "", timestr)
+
+    timestr = timestr.strip()
+    if timestr:
+        raise ValueError(f"Invalid format detected in the string: '{timestr}'")
+
+    return total_seconds
 
 
 def string_normalize(text: str) -> str:
