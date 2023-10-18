@@ -17,7 +17,7 @@ Export issue metadata & agile metrics, transform and load to OLAP data storage. 
 
 Require:
 * Python `>=3.10.*`
-* Clickhouse + specific [tables](/clickhouse/) (how to run [migration](#migration))
+* Clickhouse + specific [tables](/migrations/clickhouse/) (how to run [migration](#migration))
 
 ## Usage
 
