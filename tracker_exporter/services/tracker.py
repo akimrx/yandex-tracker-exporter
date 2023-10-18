@@ -1,6 +1,6 @@
 import logging
 
-from typing import List, Tuple
+from typing import List
 from yandex_tracker_client import TrackerClient
 from yandex_tracker_client.collections import Issues, IssueComments
 
@@ -27,7 +27,7 @@ class YandexTrackerClient:
         cloud_org_id: str | None = config.tracker.cloud_org_id,
         timeout: int = config.tracker.timeout,
         retries: int = config.tracker.max_retries,
-        lang: YandexTrackerLanguages = config.tracker.language
+        lang: YandexTrackerLanguages = config.tracker.language,
     ) -> None:
         self.client = TrackerClient(
             token=token,
@@ -36,7 +36,7 @@ class YandexTrackerClient:
             cloud_org_id=cloud_org_id,
             timeout=timeout,
             retries=retries,
-            headers={"Accept-Language": lang}
+            headers={"Accept-Language": lang},
         )
 
     @monitoring.send_time_metric("issue_prefetch_seconds")
@@ -63,7 +63,5 @@ class YandexTrackerClient:
                 f"({YANDEX_TRACKER_API_SEARCH_HARD_LIMIT}) of the Yandex.Tracker API. "
                 f"Issue on Github - {YANDEX_TRACKER_HARD_LIMIT_ISSUE_URL}"
             )
-        logger.info(
-            f"Found {issues_count} issues by query: {query} | filter: {filter} | order: {order}'"
-        )
+        logger.info(f"Found {issues_count} issues by query: {query} | filter: {filter} | order: {order}'")
         return self.client.issues.find(query=query, filter=filter, order=order, per_page=limit)

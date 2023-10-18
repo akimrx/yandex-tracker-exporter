@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS `issue_metrics`
 (
-    `version` DateTime DEFAULT now(),
-    `last_seen` DateTime COMMENT 'The date when the issue was last in this status',
+    `version` DateTime64(3, 'UTC') DEFAULT now(),
+    `last_seen` DateTime64(3, 'UTC') COMMENT 'The date when the issue was last in this status',
 
     `issue_key` String COMMENT 'Issue key',
     `status_name` LowCardinality(String) COMMENT 'Status name',

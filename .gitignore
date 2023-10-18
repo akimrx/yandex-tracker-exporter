@@ -1,5 +1,5 @@
 scripts/*
-clickhouse
+/clickhouse
 migrate
 test.json
 state.json

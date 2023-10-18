@@ -11,7 +11,10 @@ help:
 	@echo "---------------------------------------------------------------------"
 	@echo "  test                Run tests (pytest)"
 	@echo "  test-no-cov         Run tests (pytest) without coverage report"
-	@echo "  lint                Check python syntax & style by pylint"
+	@echo "  pylint              Check python syntax & style by pylint"
+	@echo "  lint                Check python syntax via Flake8"
+	@echo "  black               Check python syntax & style by black"
+	@echo "  black-apply         Apply black linter (autoformat)"
 	@echo "  sec                 Security linter (bandit)"
 	@echo ""
 	@echo "🛠  INSTALL & RELEASE"
@@ -57,7 +60,16 @@ test-no-cov:
 	@pytest -v
 
 lint:
+	@flake8 --config=setup.cfg --max-line=119
+
+pylint:
 	@pylint --max-line-length=120 --rcfile=setup.cfg tracker_exporter
+
+black:
+	@black tracker_exporter/* --color --diff --check
+
+black-apply:
+	@black tracker_exporter/*
 
 sec:
 	@bandit -r tracker_exporter

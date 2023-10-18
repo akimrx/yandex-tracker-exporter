@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 class ClickhousePayload(BaseModel):
     issue: dict
+    changelog: list
     metrics: list
 
 
@@ -84,7 +85,11 @@ class Base:
 
     def to_dict(self) -> dict:
         """Recursive serialize object."""
-        null_cleaner = lambda value: "" if value is None else value  # pylint: disable=C3001
+
+        def null_cleaner(value: Any):
+            if value is None:
+                return ""
+            return value
 
         def parse(val):
             if isinstance(val, list):
@@ -129,7 +134,6 @@ class JSONFileStorageStrategy(ABC):
     @abstractmethod
     def read(self) -> Any:
         """Read content from file."""
-
 
     @abstractmethod
     def save(self) -> Any:

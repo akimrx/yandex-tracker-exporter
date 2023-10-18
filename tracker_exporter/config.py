@@ -1,13 +1,17 @@
 import datetime
 import logging
-import pytz
 
 from functools import lru_cache
 from typing import List
 from pydantic import validator, root_validator
 from pydantic_settings import BaseSettings
 
-from tracker_exporter.models.base import YandexTrackerLanguages, LogLevels, StateStorageTypes, JsonStorageStrategies
+from tracker_exporter.models.base import (
+    YandexTrackerLanguages,
+    LogLevels,
+    StateStorageTypes,
+    JsonStorageStrategies,
+)
 from tracker_exporter.exceptions import ConfigurationError
 from tracker_exporter.services.monitoring import DogStatsdClient
 
@@ -19,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class MonitoringSettings(BaseSettings):
     """Observability settings."""
+
     metrics_enabled: bool = False
     metrics_host: str = "localhost"
     metrics_port: int = 8125
@@ -40,6 +45,7 @@ class MonitoringSettings(BaseSettings):
 
 class ClickhouseSettings(BaseSettings):
     """Settings for Clickhouse storage."""
+
     enable_upload: bool = True
     host: str = "localhost"
     proto: str = "http"
@@ -51,6 +57,7 @@ class ClickhouseSettings(BaseSettings):
     database: str = "agile"
     issues_table: str = "issues"
     issue_metrics_table: str = "issue_metrics"
+    issues_changelog_table: str = "issues_changelog"
     auto_deduplicate: bool = True
     backoff_base_delay: int | float = 0.5
     backoff_expo_factor: int | float = 2.5
@@ -77,6 +84,7 @@ class ClickhouseSettings(BaseSettings):
 
 class IssuesSearchSettings(BaseSettings):
     """Settings for search & export."""
+
     query: str | None = None
     range: str = "2h"
     queues: str | List[str] | None = None
@@ -88,10 +96,7 @@ class IssuesSearchSettings(BaseSettings):
             return None
 
         if not isinstance(value, (str, list)):
-            raise ConfigurationError(
-                "Invalid QUEUES. "
-                "Example: TEST,TRASH. Received: %s", value
-            )
+            raise ConfigurationError("Invalid QUEUES. Example: TEST,TRASH. Received: %s", value)
 
         queues = value.split(",") if isinstance(value, str) else value
         return ", ".join([f"{q.upper()}" for q in queues])
@@ -102,6 +107,7 @@ class IssuesSearchSettings(BaseSettings):
 
 class TrackerSettings(BaseSettings):
     """Settings for Yandex.Tracker client."""
+
     loglevel: LogLevels = LogLevels.warning
     token: str | None = None
     org_id: str | None = None
@@ -138,6 +144,7 @@ class TrackerSettings(BaseSettings):
 
 class StateSettings(BaseSettings):
     """Settings for stateful mode."""
+
     storage: StateStorageTypes | None = StateStorageTypes.jsonfile
     redis_dsn: str = "redis://localhost:6379"
     jsonfile_strategy: JsonStorageStrategies = JsonStorageStrategies.local
@@ -156,12 +163,14 @@ class StateSettings(BaseSettings):
         jsonfile_s3_endpoint = values.get("jsonfile_s3_endpoint")
         jsonfile_s3_access_key = values.get("jsonfile_s3_access_key")
         jsonfile_s3_secret_key = values.get("jsonfile_s3_secret_key")
-        s3_is_configured = all((
-            jsonfile_s3_bucket,
-            jsonfile_s3_endpoint,
-            jsonfile_s3_access_key,
-            jsonfile_s3_secret_key
-        ))
+        s3_is_configured = all(
+            (
+                jsonfile_s3_bucket,
+                jsonfile_s3_endpoint,
+                jsonfile_s3_access_key,
+                jsonfile_s3_secret_key,
+            )
+        )
 
         if jsonfile_strategy == JsonStorageStrategies.s3 and not s3_is_configured:
             raise ConfigurationError("S3 must be configured for JSONFileStorage with S3 strategy.")
@@ -174,12 +183,16 @@ class StateSettings(BaseSettings):
 
 class Settings(BaseSettings):
     """Global merged config."""
+
     monitoring: MonitoringSettings = MonitoringSettings()
     clickhouse: ClickhouseSettings = ClickhouseSettings()
     tracker: TrackerSettings = TrackerSettings  # TODO (akimrx): research, called class not see TOKEN's
     state: StateSettings = StateSettings()
     stateful: bool = False
-    stateful_initial_range: str = "6mo"
+    stateful_initial_range: str = "1w"
+    changelog_export_enabled: bool = True
+    log_etl_stats: bool = True
+    log_etl_stats_each_n_iter: int = 100
 
     loglevel: LogLevels = LogLevels.info
     workdays: List[int] = [0, 1, 2, 3, 4]
@@ -210,7 +223,7 @@ class Settings(BaseSettings):
         if not isinstance(value, (str, list)):
             raise ConfigurationError(
                 "Invalid CLOSED_ISSUES_STATUSES. Example: closed,released,cancelled. Received: %s",
-                value
+                value,
             )
 
         if isinstance(value, str):
@@ -222,7 +235,7 @@ class Settings(BaseSettings):
         if not isinstance(value, (str, list, tuple)):
             raise ConfigurationError(
                 "Invalid NOT_NULLABLE_FIELDS. Example: created_at,deadline,updated_at. Received: %s",
-                value
+                value,
             )
 
         if isinstance(value, str):
@@ -250,5 +263,5 @@ monitoring = DogStatsdClient(
     base_labels=config.monitoring.metrics_base_labels,
     metric_name_prefix=config.monitoring.metrics_base_prefix,
     use_ms=True,
-    enabled=config.monitoring.metrics_enabled
+    enabled=config.monitoring.metrics_enabled,
 )
