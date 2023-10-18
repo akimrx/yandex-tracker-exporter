@@ -140,7 +140,7 @@ class YandexTrackerETL:
 
         monitoring.send_gauge_metric("issues_without_metrics", value=issues_without_metrics)
         logger.info(
-            f"Total issues: {len(issues)}, total cycle time metrics: {len(metrics)}, "
+            f"Total issues: {len(issues)}, total metrics: {len(metrics)}, "
             f"ignored issues with empty metrics: {issues_without_metrics}"
         )
         return issues, metrics, last_updated_at
@@ -200,7 +200,7 @@ class YandexTrackerETL:
             else:
                 if all((stateful, self.state, possible_new_state)):
                     self.state.set(self.state_key, possible_new_state)
-                monitoring.send_gauge_metric("last_update_timestamp", value=int(time.time()))  # TODO (akimrx): convert possible_new_state to timestamp instead time.time()
+                monitoring.send_gauge_metric("last_update_timestamp", value=int(time.time()))
             finally:
                 monitoring.send_gauge_metric("etl_upload_status", value=1 if success else 2)
         else:

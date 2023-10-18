@@ -25,14 +25,15 @@ logger = logging.getLogger(__name__)
 
 class TrackerIssueMetric(Base):
     """This object represents a issue metrics for TrackerIssue object."""
-    def __init__(self,
-                 issue_key: str,
-                 status_name: str,
-                 status_transitions_count: int,
-                 duration: int,
-                 busdays_duration: int,
-                 last_seen: str):
-
+    def __init__(
+        self,
+        issue_key: str,
+        status_name: str,
+        status_transitions_count: int,
+        duration: int,
+        busdays_duration: int,
+        last_seen: str
+    ) -> None:
         self.issue_key = issue_key
         self.status_name = status_name
         self.status_transitions_count = status_transitions_count
@@ -52,7 +53,7 @@ class TrackerIssue(Base):
         self._transform(self._issue)
 
     def _transform(self, issue: Issues) -> None:
-        """Formation of a task object based on its metadata."""
+        """Transformation of a issue into useful data."""
         logger.debug(f"Transforming issue {issue.key}...")
 
         self.queue: str = issue.queue.key
@@ -88,12 +89,14 @@ class TrackerIssue(Base):
         self.moved_by: str = None
 
     def _on_changelog_issue_moved(self, event: object) -> None:
+        """Actions whe 'issue moved' event triggered."""
         logger.debug(f"Moved issue found: {self.issue_key}")
         self.was_moved = True
         self.moved_by = validate_resource(event.updatedBy, "email")
         self.moved_at = convert_datetime(event.updatedAt)
 
     def _on_changelog_issue_workflow(self, event: object) -> None:
+        """Actions whe 'issue wofklow' event triggered."""
         logger.debug(f"Issue workflow fields found: {event.fields}")
 
         if len(event.fields) < 2:
@@ -153,8 +156,6 @@ class TrackerIssue(Base):
     def metrics(self) -> List[TrackerIssueMetric]:
         """
         All metrics are based on status change events in the task history.
-        The method has the ability to filter only the necessary statuses
-        passed in the argument.
 
         The metric of being in the status is considered
         only after the end of being in the calculated status.

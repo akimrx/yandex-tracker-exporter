@@ -10,12 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class S3FileStorageStrategy(JSONFileStorageStrategy):
+    """Strategy for storing a JSON file in the remote object storage (S3)."""
     def __init__(self, file_path: str):
         self.file_path = file_path
         raise NotImplementedError  # TODO (akimrx): implement
 
 
 class LocalFileStorageStrategy(JSONFileStorageStrategy):
+    """Strategy for storing a JSON file in the local file system."""
     def __init__(self, file_path: str, raise_if_not_exists: bool = False):
         self.file_path = file_path
         self.raise_if_not_exists = raise_if_not_exists

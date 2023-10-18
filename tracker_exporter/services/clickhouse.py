@@ -68,7 +68,13 @@ class ClickhouseClient:
 
         return params
 
-    @backoff((ConnectionError, Timeout))
+    @backoff(
+        exceptions=(ConnectionError, Timeout),
+        base_delay=config.clickhouse.backoff_base_delay,
+        expo_factor=config.clickhouse.backoff_expo_factor,
+        max_tries=config.clickhouse.backoff_max_tries,
+        jitter=config.clickhouse.backoff_jitter,
+    )
     def execute(self, query: str) -> Response | None:
         url = f"{self.proto}://{self.host}:{self.port}"
         params = self._prepare_query_params()

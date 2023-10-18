@@ -1,9 +1,9 @@
 
 # Project roadmap
 
-- [ ] refactoring code
+- [x] refactoring code
+- [x] CI
 - [ ] pytest
-- [ ] CI
 - [ ] stateful mode
 - [ ] helm chart
 - [ ] docker image

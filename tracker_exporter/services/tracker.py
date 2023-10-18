@@ -27,7 +27,6 @@ class YandexTrackerClient:
         cloud_org_id: str | None = config.tracker.cloud_org_id,
         timeout: int = config.tracker.timeout,
         retries: int = config.tracker.max_retries,
-        timezone: str = "UTC",
         lang: YandexTrackerLanguages = config.tracker.language
     ) -> None:
         self.client = TrackerClient(

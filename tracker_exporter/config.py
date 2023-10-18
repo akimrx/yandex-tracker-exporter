@@ -23,7 +23,7 @@ class MonitoringSettings(BaseSettings):
     metrics_host: str = "localhost"
     metrics_port: int = 8125
     metrics_base_prefix: str = "tracker_exporter"
-    metrics_base_labels: List[str] = ["project:internal",]
+    metrics_base_labels: List[str] = []
     sentry_enabled: bool = False
     sentry_dsn: str | None = None
 
@@ -52,6 +52,10 @@ class ClickhouseSettings(BaseSettings):
     issues_table: str = "issues"
     issue_metrics_table: str = "issue_metrics"
     auto_deduplicate: bool = True
+    backoff_base_delay: int | float = 0.5
+    backoff_expo_factor: int | float = 2.5
+    backoff_max_tries: int = 3
+    backoff_jitter: bool = True
 
     @validator("serverless_proxy_id", pre=True, always=True)
     def validate_serverless_proxy_id(cls, value: str | None, values: dict) -> str:
@@ -145,15 +149,24 @@ class StateSettings(BaseSettings):
     jsonfile_s3_secret_key: str | None = None
     custom_storage_params: dict = {}
 
-    # @root_validator(pre=True)
-    # def validate_state(cls, values) -> str:
-    #     stateful = values.get("stateful")
-    #     storage = values.get("storage")
+    @root_validator(pre=True)
+    def validate_state(cls, values) -> str:
+        jsonfile_strategy = values.get("jsonfile_strategy")
+        jsonfile_s3_bucket = values.get("jsonfile_s3_bucket")
+        jsonfile_s3_endpoint = values.get("jsonfile_s3_endpoint")
+        jsonfile_s3_access_key = values.get("jsonfile_s3_access_key")
+        jsonfile_s3_secret_key = values.get("jsonfile_s3_secret_key")
+        s3_is_configured = all((
+            jsonfile_s3_bucket,
+            jsonfile_s3_endpoint,
+            jsonfile_s3_access_key,
+            jsonfile_s3_secret_key
+        ))
 
-    #     if stateful and storage is None:
-    #         raise ConfigurationError("Can't run ETL in stateful mode choose storage")
+        if jsonfile_strategy == JsonStorageStrategies.s3 and not s3_is_configured:
+            raise ConfigurationError("S3 must be configured for JSONFileStorage with S3 strategy.")
 
-    #     return values
+        return values
 
     class Config:
         extra = "ignore"
@@ -189,7 +202,7 @@ class Settings(BaseSettings):
         "end_date",
         "start_time",
         "end_time",
-        "moved_at"
+        "moved_at",
     )
 
     @validator("closed_issue_statuses", pre=True, always=True)
@@ -208,7 +221,7 @@ class Settings(BaseSettings):
     def validate_not_nullable_fields(cls, value: str) -> list:
         if not isinstance(value, (str, list, tuple)):
             raise ConfigurationError(
-                "Invalid not_nullable_fields. Example: created_at,deadline,updated_at. Received: %s",
+                "Invalid NOT_NULLABLE_FIELDS. Example: created_at,deadline,updated_at. Received: %s",
                 value
             )
 

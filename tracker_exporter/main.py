@@ -53,6 +53,7 @@ scheduler = BackgroundScheduler()
 
 
 def signal_handler(sig, frame) -> None:  # pylint: disable=W0613
+    """Graceful shutdown."""
     if sig in (signal.SIGINT, signal.SIGTERM,):
         logger.warning(f"Received {signal.Signals(sig).name}, graceful shutdown...")
         scheduler.shutdown()
@@ -60,6 +61,7 @@ def signal_handler(sig, frame) -> None:  # pylint: disable=W0613
 
 
 def configure_sentry() -> None:
+    """Configure Sentry client for send exception stacktraces."""
     if config.monitoring.sentry_enabled:
         assert config.monitoring.sentry_dsn is not None
         sentry_sdk.init(
@@ -73,28 +75,35 @@ def configure_sentry() -> None:
     )
 
 
+def configure_jsonfile_storage() -> JsonStateStorage:
+    """Configure and returns storage for StateKeeper."""
+    match config.state.jsonfile_strategy:
+        case JsonStorageStrategies.local:
+            storage_strategy = LocalFileStorageStrategy(config.state.jsonfile_path)
+        case JsonStorageStrategies.s3:
+            raise NotImplementedError
+        case _:
+            raise ValueError
+    return JsonStateStorage(storage_strategy)
+
+
 def configure_state_service() -> StateKeeper | None:
+    """Configure StateKeeper for ETL stateful mode."""
     if not config.stateful:
         return
 
     match config.state.storage:
         case StateStorageTypes.jsonfile:
-            match config.state.jsonfile_strategy:
-                case JsonStorageStrategies.local:
-                    storage_strategy = LocalFileStorageStrategy(config.state.jsonfile_path)
-                case JsonStorageStrategies.s3:
-                    raise NotImplementedError
-                case _:
-                    raise ValueError
-            state_service = StateKeeper(JsonStateStorage(storage_strategy))
+            storage = configure_jsonfile_storage()
         case StateStorageTypes.redis:
             raise NotImplementedError
         case _:
             raise ValueError
-    return state_service
+    return StateKeeper(storage)
 
 
 def run_etl(ignore_exceptions: bool = False) -> None:
+    """Start ETL process."""
     etl = YandexTrackerETL(
         tracker_client=YandexTrackerClient(),
         clickhouse_client=ClickhouseClient(),
@@ -112,6 +121,7 @@ def run_etl(ignore_exceptions: bool = False) -> None:
 
 
 def main() -> None:
+    """Entry point for CLI command."""
     configure_sentry()
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -119,7 +129,7 @@ def main() -> None:
     scheduler.add_job(
         run_etl,
         trigger="interval",
-        name="issues_cycle_time_exporter",
+        name="tracker_etl_default",
         minutes=int(config.etl_interval_minutes),
         max_instances=1,
         next_run_time=datetime.now() + timedelta(seconds=5)

@@ -15,25 +15,9 @@ Export issue metadata & agile metrics, transform and load to OLAP data storage. 
 
 > You can fork this repository and refine the tool the way you want. Or use it as it is - this will allow you to build basic analytics on the tasks from Yandex.Tracker.
 
-## On-premise arch example
-
-![](/docs/images/agile_metrics.png)
-
-So, you can install Clickhouse with Proxy via [Ansible role inside project (previous versions)](https://github.com/akimrx/yandex-tracker-exporter/tree/v0.1.19/ansible).  
-Edit the inventory file `ansible/inventory/hosts.yml` and just run ansible-playbook.
-
-> **Attention:**
-> For the role to work correctly, docker must be installed on the target server.
-
-Example:
-```bash
-
-pip3 install -r requirements-dev.txt
-cd ansible
-ansible-playbook -i inventory/hosts.yml playbooks/clickhouse.yml --limit agile
-```
-
-Also, you can use [this extended Clickhouse role](https://github.com/akimrx/ansible-clickhouse-role)
+Require:
+* Python `>=3.10.*`
+* Clickhouse + specific [tables](#migration)
 
 ## Usage
 
@@ -45,7 +29,7 @@ Also, you can use [this extended Clickhouse role](https://github.com/akimrx/ansi
 # prepare virtual environment
 python3 -m venv venv
 source venv/bin/activate
-python3 setup.py install
+make install
 
 # configure environment variables
 export EXPORTER_TRACKER__TOKEN=your_token
@@ -68,7 +52,7 @@ pip3 install tracker-exporter
 tracker-exporter
 ```
 
-#### Use .env file
+#### Configure via .env file
 
 Read about the settings [here](#environment-variables-settings)
 
@@ -85,6 +69,31 @@ cd yandex-tracker-exporter/docker
 docker-compose up -d
 docker logs tracker-exporter -f
 ```
+
+## On-premise arch example
+
+![](/docs/images/agile_metrics.png)
+
+### On-premise Clickhouse
+
+So, you can install Clickhouse with Proxy via [Ansible role inside project (previous versions)](https://github.com/akimrx/yandex-tracker-exporter/tree/v0.1.19/ansible).  
+Edit the inventory file `ansible/inventory/hosts.yml` and just run ansible-playbook.
+
+> **Attention:**
+> For the role to work correctly, docker must be installed on the target server.
+
+Example Clickhouse installation:
+```bash
+git clone https://github.com/akimrx/yandex-tracker-exporter.git
+cd yandex-tracker-exporter
+git checkout v0.1.19
+python3 -m venv venv && source venv/bin/activate
+pip3 install -r requirements-dev.txt
+cd ansible
+ansible-playbook -i inventory/hosts.yml playbooks/clickhouse.yml --limit agile
+```
+
+Also, you can use [this extended Clickhouse role](https://github.com/akimrx/ansible-clickhouse-role)
 
 
 ## Yandex.Cloud – Cloud Functions
@@ -237,7 +246,7 @@ run_migration
 
 # Configuration via environment variables
 
-See config declaration [here](/src/config.py)
+See config declaration [here](/tracker_exporter/config.py)
 
 ## General settings
 
@@ -290,6 +299,10 @@ See config declaration [here](/src/config.py)
 | `EXPORTER_CLICKHOUSE__ISSUES_TABLE` | Clickhouse table for issues metadata. Default: `issues`
 | `EXPORTER_CLICKHOUSE__ISSUE_METRICS_TABLE` | Clickhouse table for issue metrics. Default: `issue_metrics`
 | `EXPORTER_CLICKHOUSE__AUTO_DEDUPLICATE` | Execute `OPTIMIZE` after each `INSERT`. Default is `True`
+| `EXPORTER_CLICKHOUSE__BACKOFF_BASE_DELAY` | Base delay for backoff strategy. Default: `0.5` (sec)
+| `EXPORTER_CLICKHOUSE__BACKOFF_EXPO_FACTOR` | Exponential factor for multiply every try. Default: `2.5` (sec)
+| `EXPORTER_CLICKHOUSE__BACKOFF_MAX_TRIES` | Max tries for backoff strategy. Default: `3`
+| `EXPORTER_CLICKHOUSE__BACKOFF_JITTER` | Enable jitter (randomize delay) for retries. Default: `True`
 
 ## State settings
 
@@ -314,8 +327,8 @@ See config declaration [here](/src/config.py)
 | `EXPORTER_MONITORING__METRICS_HOST` | DogStatsD / statsd host. Default: `localhost`
 | `EXPORTER_MONITORING__METRICS_PORT` | DogStatsD / statsd port. Default: `8125`
 | `EXPORTER_MONITORING__METRICS_BASE_PREFIX` | Prefix for metrics name. Default: `tracker_exporter`
-| `EXPORTER_MONITORING__METRICS_BASE_LABELS` | Tags for metrics. Default: `["project:internal",]`
-| `EXPORTER_MONITORING__SENTRY_ENABLED` | Enable send exception stacktrace to Sentry. Default is empty
+| `EXPORTER_MONITORING__METRICS_BASE_LABELS` | List of tags for metrics. Example: `["project:internal",]`. Default is empty
+| `EXPORTER_MONITORING__SENTRY_ENABLED` | Enable send exception stacktrace to Sentry. Default is `False`
 | `EXPORTER_MONITORING__SENTRY_DSN` | Sentry DSN. Default is empty
 
 
