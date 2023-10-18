@@ -17,7 +17,7 @@ Export issue metadata & agile metrics, transform and load to OLAP data storage. 
 
 Require:
 * Python `>=3.10.*`
-* Clickhouse + specific [tables](#migration)
+* Clickhouse + specific [tables](/clickhouse/) (how to run [migration](#migration))
 
 ## Usage
 
@@ -121,7 +121,7 @@ Also, you can use [this extended Clickhouse role](https://github.com/akimrx/ansi
 * Set function timeout to `600`, because the launch can be long if there are a lot of updated issues during the collection period
 * Set memory to `512MB` or more
 * Add environment variables (see variables block [here](#configuration-via-environment-variables))
-```bash
+```ini
 EXPORTER_TRACKER__TOKEN=XXXXXXXXXXXXXXXX
 EXPORTER_TRACKER__CLOUD_ORG_ID=123456
 EXPORTER_TRACKER__SEARCH__RANGE=2h
