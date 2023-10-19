@@ -1,8 +1,11 @@
 import re
+import os
 import time
+import json
 import logging
 import random
 import pytz
+import psutil
 
 from functools import wraps
 from typing import Union, Tuple, Type, Callable, Any
@@ -12,6 +15,8 @@ import holidays
 import pandas as pd
 import businesstimedelta
 
+
+from yandex_tracker_client.objects import Reference
 from tracker_exporter._typing import DateTimeISO8601Str, DateStr, _Sequence
 from tracker_exporter.models.base import TimeDeltaOut
 from tracker_exporter.config import config
@@ -19,11 +24,7 @@ from tracker_exporter.config import config
 logger = logging.getLogger(__name__)
 
 
-def get_timedelta(
-    end_time: datetime,
-    start_time: datetime,
-    out: TimeDeltaOut = TimeDeltaOut.SECONDS
-) -> int:
+def get_timedelta(end_time: datetime, start_time: datetime, out: TimeDeltaOut = TimeDeltaOut.SECONDS) -> int:
     """Simple timedelta between dates."""
     assert isinstance(start_time, datetime)
     assert isinstance(end_time, datetime)
@@ -41,7 +42,10 @@ def calculate_time_spent(
     end_date: datetime,
     busdays_only: bool = False,
     workdays: list = config.workdays,
-    business_hours: Tuple = (config.business_hours_start, config.business_hours_end,)
+    business_hours: Tuple = (
+        config.business_hours_start,
+        config.business_hours_end,
+    ),
 ) -> int:
     """
     Calculate timedelta between dates with business days support.
@@ -55,19 +59,15 @@ def calculate_time_spent(
 
     holiday_rules = businesstimedelta.HolidayRule(holidays.RU())
     workday_rules = businesstimedelta.WorkDayRule(
-        start_time=business_hours[0],
-        end_time=business_hours[1],
-        working_days=workdays)
+        start_time=business_hours[0], end_time=business_hours[1], working_days=workdays
+    )
 
     if busdays_only:
-        logger.debug(
-            f"Calculating workhours. "
-            f"Business hours: {business_hours}. {start_date}, {end_date}"
-        )
+        logger.debug(f"Calculating workhours. Business hours: {business_hours}. {start_date}, {end_date}")
         bt = businesstimedelta.Rules([workday_rules, holiday_rules])
         result = bt.difference(start_date, end_date).timedelta.total_seconds()
     else:
-        logger.debug(f"Calculating regular hours")
+        logger.debug("Calculating regular hours")
         result = (end_date - start_date).total_seconds()
 
     return abs(int(result))
@@ -88,11 +88,7 @@ def fix_null_dates(data: dict) -> dict:
 
 
 # pylint: disable=R1710
-def validate_resource(
-    resource: object,
-    attribute: str,
-    low: bool = True
-) -> Any | None:
+def validate_resource(resource: object, attribute: str, low: bool = True) -> Any | None:
     """Validate Yandex.Tracker object attribute and return it if exists."""
     if hasattr(resource, attribute):
         _attr = getattr(resource, attribute)
@@ -157,6 +153,7 @@ def backoff(
     jitter: bool = False,
 ) -> Callable:
     """Decorator for backoff retry function/method calls."""
+
     def retry_decorator(func: Callable):
         @wraps(func)
         def func_retry(*args, **kwargs):
@@ -182,7 +179,9 @@ def backoff(
                     else:
                         time.sleep(delay)
                     delay *= expo_factor
+
         return func_retry
+
     return retry_decorator
 
 
@@ -228,7 +227,7 @@ def from_human_time(timestr: str) -> int:
         (r"(\d+)d", 24 * 60 * 60),  # days
         (r"(\d+)h", 60 * 60),  # hours
         (r"(\d+)m", 60),  # minutes
-        (r"(\d+)s", 1)  # seconds
+        (r"(\d+)s", 1),  # seconds
     ]
 
     for pattern, multiplier in patterns:
@@ -246,10 +245,94 @@ def from_human_time(timestr: str) -> int:
 
 def string_normalize(text: str) -> str:
     """Remove all incompatible symbols."""
-    emoji_pattern = re.compile("["
-            u"\U0001F600-\U0001F64F"  # emoticons
-            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-            u"\U0001F680-\U0001F6FF"  # transport & map symbols
-            u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-                            "]+", flags=re.UNICODE)
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "]+",
+        flags=re.UNICODE,
+    )
     return emoji_pattern.sub(r"", text)
+
+
+def extract_changelog_field(value: Any) -> Any:
+    """Extractor for Yandex.Tracker issue changelog."""
+    match value:
+        case list():
+            logger.debug(f"Changelog field is list: {value}")
+            return ", ".join(extract_changelog_field(i) for i in value)
+        case str():
+            logger.debug(f"Changelog field is string: {value}")
+            try:
+                dtime = convert_datetime(value)
+            except Exception:
+                if len(value) > 100:
+                    return "text too long, see history in UI"
+                return value
+            else:
+                return dtime
+        case dict():
+            logger.debug(f"Changelog field is dict, dumping: {value}")
+            return json.dumps(value, ensure_ascii=False)
+        case None:
+            logger.debug(f"Changelog field is None, fixing: {value}")
+            return ""
+        case int():
+            logger.debug(f"Changelog field is integer: {value}")
+            return str(value)
+        case float():
+            logger.debug(f"Changelog field is float: {value}")
+            return str(value)
+        case Reference():
+            logger.debug(f"Changelog field is Reference to object: {value}. Extracting...")
+            return (
+                validate_resource(value, "key", low=False)
+                or validate_resource(value, "email")
+                or validate_resource(value, "name", low=False)
+                or validate_resource(value, "id", low=False)
+            )
+        case _:
+            logger.warning(f"Unknown type of changelog field received: {type(value)}: {value}")
+
+
+def bytes_to_human(data: int, granularity=2):
+    """Convert bytes to human format with binary prefix."""
+    _bytes = int(data)
+    result = []
+    sizes = (  # fmt: off
+        ("TB", 1024**4),
+        ("GB", 1024**3),
+        ("MB", 1024**2),
+        ("KB", 1024),
+        ("B", 1),
+    )  # fmt: on
+    if _bytes == 0:
+        return 0
+    else:
+        for name, count in sizes:
+            value = _bytes // count
+            if value:
+                _bytes -= value * count
+                result.append(f"{value}{name}")
+        return ", ".join(result[:granularity])
+
+
+def log_etl_stats(iteration: int, remaining: int, elapsed: float, entity: str = "issues"):  # pragma: no cover
+    """Logging resources usage."""
+    process = psutil.Process(os.getpid())
+    memory = process.memory_info()
+    memory_rss_usage = bytes_to_human(memory.rss, granularity=1)
+    elapsed_time = to_human_time(elapsed)
+
+    try:
+        avg_time = elapsed // iteration
+        avg_task_transform = f"{avg_time:.2f}ms" if avg_time < 1 else to_human_time(avg_time)
+    except ZeroDivisionError:
+        avg_task_transform = "calculating.."
+
+    logger.info(
+        f"Processed {iteration} of ~{remaining} {entity}. Avg time per issue: {avg_task_transform}. "
+        f"Elapsed time: {elapsed_time}. MEM_RSS_USED: {memory_rss_usage}"
+    )

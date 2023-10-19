@@ -18,7 +18,7 @@ MIGRATION_DATABASE="agile"
 MIGRATION_CLICKHOUSE_DSN="clickhouse://${CLICKHOUSE_HOST}:${CLICKHOUSE_TCP_PORT}?username=${CLICKHOUSE_USER}&database=${MIGRATION_DATABASE}&x-multi-statement=true&x-migrations-table=${MIGRATION_HISTORY_TABLE}"
 
 install_go_migrate() {
-    echo "System is ${SYSTEM} {$ARCH}"
+    echo "System is ${SYSTEM} (${ARCH})"
     if command -v ./migrate >/dev/null 2>&1; then
         echo "Tool for migration already installed, skipping installation"
     else
@@ -65,14 +65,17 @@ run_migration() {
 recreate_views() {
     echo "DROP VIEW IF EXISTS ${MIGRATION_DATABASE}.issues_view" | \
         curl "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_HTTP_PORT}/?user=${CLICKHOUSE_USER}" --data-binary @-
-
-    echo "DROP VIEW IF EXISTS ${MIGRATION_DATABASE}.metrics_view" | \
+    echo "DROP VIEW IF EXISTS ${MIGRATION_DATABASE}.issue_metrics_view" | \
+        curl "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_HTTP_PORT}/?user=${CLICKHOUSE_USER}" --data-binary @-
+    echo "DROP VIEW IF EXISTS ${MIGRATION_DATABASE}.issues_changelog_view" | \
         curl "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_HTTP_PORT}/?user=${CLICKHOUSE_USER}" --data-binary @-
 
 
     echo "CREATE VIEW IF NOT EXISTS ${MIGRATION_DATABASE}.issues_view AS SELECT * FROM ${MIGRATION_DATABASE}.issues FINAL" | \
         curl "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_HTTP_PORT}/?user=${CLICKHOUSE_USER}" --data-binary @-
-    echo "CREATE VIEW IF NOT EXISTS ${MIGRATION_DATABASE}.metrics_view AS SELECT * FROM ${MIGRATION_DATABASE}.issue_metrics FINAL" | \
+    echo "CREATE VIEW IF NOT EXISTS ${MIGRATION_DATABASE}.issue_metrics_view AS SELECT * FROM ${MIGRATION_DATABASE}.issue_metrics FINAL" | \
+        curl "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_HTTP_PORT}/?user=${CLICKHOUSE_USER}" --data-binary @-
+    echo "CREATE VIEW IF NOT EXISTS ${MIGRATION_DATABASE}.issues_changelog_view AS SELECT * FROM ${MIGRATION_DATABASE}.issues_changelog FINAL" | \
         curl "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_HTTP_PORT}/?user=${CLICKHOUSE_USER}" --data-binary @-
 
 }

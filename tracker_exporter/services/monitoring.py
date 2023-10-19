@@ -27,7 +27,7 @@ class DogStatsdClient:
         metric_name_prefix: str = "tracker_exporter",
         use_ms: bool = True,
         enabled: bool = True,
-    ) -> None :
+    ) -> None:
         self.host = host
         self.port = port
         self.base_labels = base_labels
@@ -39,15 +39,11 @@ class DogStatsdClient:
             assert self.host is not None
             assert self.port is not None
 
-        self.client = DogStatsd(
-            host=self.host,
-            port=self.port,
-            use_ms=self._use_ms,
-            constant_tags=self.base_labels
-        )
+        self.client = DogStatsd(host=self.host, port=self.port, use_ms=self._use_ms, constant_tags=self.base_labels)
 
     def send_count_metric(self, name: str, value: int, tags: list = []) -> Callable:
         metric = f"{self.prefix}_{name}"
+
         def metric_wrapper(func):
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -57,7 +53,9 @@ class DogStatsdClient:
                 self.client.increment(metric, value, tags=tags)
                 logger.debug(f"Success sent count metric: {metric}")
                 return func(*args, **kwargs)
+
             return wrapper
+
         return metric_wrapper
 
     def send_gauge_metric(self, name: str, value: int, tags: list = []) -> None:
@@ -85,10 +83,7 @@ def sentry_events_filter(event, hint):  # pylint: disable=R1710
         return
 
     exception = hint["exc_info"][1]
-    if isinstance(
-        exception,
-        (TrackerError, TrackerClientError, TrackerRequestError, TrackerServerError)
-    ):
+    if isinstance(exception, (TrackerError, TrackerClientError, TrackerRequestError, TrackerServerError)):
         event["fingerprint"] = ["tracker-error"]
 
     return event

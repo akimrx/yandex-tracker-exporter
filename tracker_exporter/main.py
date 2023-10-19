@@ -2,7 +2,6 @@
 
 import os
 import sys
-import time
 import signal
 import logging
 import warnings
@@ -16,12 +15,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 parser = argparse.ArgumentParser("tracker-exporter")
 parser.add_argument(
-    "-e", "--env-file",
+    "-e",
+    "--env-file",
     metavar="file",
     dest="env_file",
     type=str,
     required=False,
-    help="Path to .env file"
+    help="Path to .env file",
 )
 args, _ = parser.parse_known_args()
 warnings.filterwarnings("ignore")
@@ -42,7 +42,7 @@ from tracker_exporter.config import config
 logging.basicConfig(
     level=config.loglevel.upper(),
     datefmt="%Y-%m-%d %H:%M:%S",
-    format="%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s.%(funcName)s] %(message)s"
+    format="%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s.%(funcName)s] %(message)s",
 )
 logging.getLogger("yandex_tracker_client").setLevel(config.tracker.loglevel.upper())
 logger = logging.getLogger(__name__)
@@ -54,7 +54,10 @@ scheduler = BackgroundScheduler()
 
 def signal_handler(sig, frame) -> None:  # pylint: disable=W0613
     """Graceful shutdown."""
-    if sig in (signal.SIGINT, signal.SIGTERM,):
+    if sig in (
+        signal.SIGINT,
+        signal.SIGTERM,
+    ):
         logger.warning(f"Received {signal.Signals(sig).name}, graceful shutdown...")
         scheduler.shutdown()
         sys.exit(0)
@@ -68,11 +71,9 @@ def configure_sentry() -> None:
             dsn=config.monitoring.sentry_dsn,
             traces_sample_rate=1.0,
             release=f"{appname}@{version}",
-            before_send=sentry_events_filter
+            before_send=sentry_events_filter,
         )
-    logger.info(
-        f"Sentry send traces is {'enabled' if config.monitoring.sentry_enabled else 'disabled'}"
-    )
+    logger.info(f"Sentry send traces is {'enabled' if config.monitoring.sentry_enabled else 'disabled'}")
 
 
 def configure_jsonfile_storage() -> JsonStateStorage:
@@ -132,7 +133,7 @@ def main() -> None:
         name="tracker_etl_default",
         minutes=int(config.etl_interval_minutes),
         max_instances=1,
-        next_run_time=datetime.now() + timedelta(seconds=5)
+        next_run_time=datetime.now() + timedelta(seconds=5),
     )
     signal.pause()
 

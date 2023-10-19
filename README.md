@@ -19,6 +19,37 @@ Require:
 * Python `>=3.10.*`
 * Clickhouse + specific [tables](/migrations/clickhouse/) (how to run [migration](#migration))
 
+## What does this tool do?
+
+**ETL** – Export, transform, load.
+
+It's simple. It doesn't do anything supernatural, it doesn't have Rocket Science in it.  
+This is a simple ant with some mathematical abilities that takes data from one place, sorts/transforms/adapts/calculate them and puts them in another place.  
+Sometimes he has to go to a lot of endpoints to collect what needs to be taken to the storage (that's the way Yandex.Tracker API).
+
+
+**Collects:**
+- Issue metadata (i.e. title, author, assignee, components, tags, status, etc)
+- Issue changelog (i.e the history of all the events that occurred with the task)
+- Calculated issue metrics by status (i.e. the time spent in a particular status)
+
+## Tech stats
+
+> Metrics based on 100,000+ constantly changing production issues
+
+- **CPU usage**: from `2%` to `10%`
+- **Memory usage (RSS):** from `48MB` to `256MB`
+- **Average processing time per issue (metrics + issue metadata)**: 1.5 seconds
+- **Average processing time per issue (with full changelog export):** 7 seconds
+
+### Why is it taking so long?
+
+This is how the tracker API and the library I use work. To get additional information about the task, you need to make a subquery in the API. For example, get the status name, employee name, and so on. When collecting data about a single task, more than several dozen HTTP requests can be executed.
+
+This is also the answer to the question why the tool is not asynchronous. Limits in the API would not allow effective use of concurrency.
+
+The processing speed of one issue depends on how many changes there are in the issue in its history. More changes means longer processing.
+
 ## Usage
 
 ### Native
@@ -252,84 +283,88 @@ See config declaration [here](/tracker_exporter/config.py)
 
 | variable | description |
 |----------|-------------|
-| `EXPORTER_STATEFUL` | Enable stateful mode. Required `EXPORTER_STATE__*` params. Default is `False`
-| `EXPORTER_STATEFUL_INITIAL_RANGE` | Initial search range when unknown last state. Default: `6mo`
+| `EXPORTER_STATEFUL` | Enable stateful mode. Required `EXPORTER_STATE__*` params. Default is `False` |
+| `EXPORTER_STATEFUL_INITIAL_RANGE` | Initial search range when unknown last state. Default: `1w` |
+| `EXPORTER_CHANGELOG_EXPORT_ENABLED` | Enable export all issues changelog to Clickhouse. Can greatly slow down exports. Default is `True` |
 | `EXPORTER_LOGLEVEL` | ETL log level. Default: `info` |
-| `EXPORTER_WORKDAYS` | Workdays for calculate business time. 0 - mon, 6 - sun. Default: `[0,1,2,3,4]`
-| `EXPORTER_BUSINESS_HOURS_START` | Business hours start for calculate business time. Default: `09:00:00`
-| `EXPORTER_BUSINESS_HOURS_END` | Business hours end for calculate business time. Default: `22:00:00`
-| `EXPORTER_DATETIME_RESPONSE_FORMAT` | Yandex.Tracker datetime format in responses. Default: `%Y-%m-%dT%H:%M:%S.%f%z`
-| `EXPORTER_DATETIME_QUERY_FORMAT` | Datetime format for search queries. Default: `%Y-%m-%d %H:%M:%S`
-| `EXPORTER_DATETIME_CLICKHOUSE_FORMAT` | Datetime format for Clickhouse. Default: `%Y-%m-%dT%H:%M:%S.%f`
-| `EXPORTER_ETL_INTERVAL_MINUTES` | Interval between run ETL. Default: `30` (minutes)
-| `EXPORTER_CLOSED_ISSUE_STATUSES` | Statuses for mark issue as closed. Default: `closed,rejected,resolved,cancelled,released`
-| `EXPORTER_NOT_NULLABLE_FIELDS` | Fields that should never be null (e.g. dates). Default: all datetime fields
+| `EXPORTER_LOG_ETL_STATS` | Enable logging transform stats every N iteration. Default is `True` |
+| `EXPORTER_LOG_ETL_STATS_EACH_N_ITER` | How many iterations must pass to log stats. Default is `100` |
+| `EXPORTER_WORKDAYS` | Workdays for calculate business time. 0 - mon, 6 - sun. Default: `[0,1,2,3,4]` |
+| `EXPORTER_BUSINESS_HOURS_START` | Business hours start for calculate business time. Default: `09:00:00` |
+| `EXPORTER_BUSINESS_HOURS_END` | Business hours end for calculate business time. Default: `22:00:00` |
+| `EXPORTER_DATETIME_RESPONSE_FORMAT` | Yandex.Tracker datetime format in responses. Default: `%Y-%m-%dT%H:%M:%S.%f%z` |
+| `EXPORTER_DATETIME_QUERY_FORMAT` | Datetime format for search queries. Default: `%Y-%m-%d %H:%M:%S` |
+| `EXPORTER_DATETIME_CLICKHOUSE_FORMAT` | Datetime format for Clickhouse. Default: `%Y-%m-%dT%H:%M:%S.%f` |
+| `EXPORTER_ETL_INTERVAL_MINUTES` | Interval between run ETL. Default: `30` (minutes) |
+| `EXPORTER_CLOSED_ISSUE_STATUSES` | Statuses for mark issue as closed. Default: `closed,rejected,resolved,cancelled,released` |
+| `EXPORTER_NOT_NULLABLE_FIELDS` | Fields that should never be null (e.g. dates). Default: all datetime fields |
 
 ## Tracker settings
 
 | variable | description |
 |----------|-------------|
-| `EXPORTER_TRACKER__LOGLEVEL` | Log level for Yandex.Tracker SDK. Default: `warning`
-| `EXPORTER_TRACKER__TOKEN` | OAuth2 token. Required if `EXPORTER_TRACKER__IAM_TOKEN` is not passed
-| `EXPORTER_TRACKER__ORG_ID` | Yandex360 organization ID. Required if `EXPORTER_TRACKER__CLOUD_ORG_ID` is not passed
-| `EXPORTER_TRACKER__IAM_TOKEN` | Yandex.Cloud IAM token. Required if `EXPORTER_TRACKER__TOKEN` is not passed
-| `EXPORTER_TRACKER__CLOUD_ORG_ID` | Yandex.Cloud organization ID. Required if `EXPORTER_TRACKER__ORG_ID` is not passed
-| `EXPORTER_TRACKER__TIMEOUT` | Yandex.Tracker HTTP requests timeout. Default: `10` (sec)
-| `EXPORTER_TRACKER__MAX_RETRIES` | Yandex.Tracker HTTP requests max retries. Default: `10`
-| `EXPORTER_TRACKER__LANGUAGE` | Yandex.Tracker language. Default: `en`
-| `EXPORTER_TRACKER__TIMEZONE` | Yandex.Tracker timezone. Default: `Europe/Moscow`
-| `EXPORTER_TRACKER__SEARCH__QUERY` | Custom query for search issues. This variable has the highest priority and overrides other search parameters. Default is empty
-| `EXPORTER_TRACKER__SEARCH__RANGE` | Search issues window. Has no effect in stateful mode. Default: `2h`
-| `EXPORTER_TRACKER__SEARCH__QUEUES` | Include or exclude queues in search. Example: `DEV,SRE,!TEST,!TRASH` Default is empty
-| `EXPORTER_TRACKER__SEARCH__PER_PAGE_LIMIT` | Search results per page. Default: `100`
+| `EXPORTER_TRACKER__LOGLEVEL` | Log level for Yandex.Tracker SDK. Default: `warning` |
+| `EXPORTER_TRACKER__TOKEN` | OAuth2 token. Required if `EXPORTER_TRACKER__IAM_TOKEN` is not passed |
+| `EXPORTER_TRACKER__ORG_ID` | Yandex360 organization ID. Required if `EXPORTER_TRACKER__CLOUD_ORG_ID` is not passed |
+| `EXPORTER_TRACKER__IAM_TOKEN` | Yandex.Cloud IAM token. Required if `EXPORTER_TRACKER__TOKEN` is not passed |
+| `EXPORTER_TRACKER__CLOUD_ORG_ID` | Yandex.Cloud organization ID. Required if `EXPORTER_TRACKER__ORG_ID` is not passed |
+| `EXPORTER_TRACKER__TIMEOUT` | Yandex.Tracker HTTP requests timeout. Default: `10` (sec) |
+| `EXPORTER_TRACKER__MAX_RETRIES` | Yandex.Tracker HTTP requests max retries. Default: `10` |
+| `EXPORTER_TRACKER__LANGUAGE` | Yandex.Tracker language. Default: `en` |
+| `EXPORTER_TRACKER__TIMEZONE` | Yandex.Tracker timezone. Default: `Europe/Moscow` |
+| `EXPORTER_TRACKER__SEARCH__QUERY` | Custom query for search issues. This variable has the highest priority and overrides other search parameters. Default is empty |
+| `EXPORTER_TRACKER__SEARCH__RANGE` | Search issues window. Has no effect in stateful mode. Default: `2h` |
+| `EXPORTER_TRACKER__SEARCH__QUEUES` | Include or exclude queues in search. Example: `DEV,SRE,!TEST,!TRASH` Default is empty |
+| `EXPORTER_TRACKER__SEARCH__PER_PAGE_LIMIT` | Search results per page. Default: `100` |
 
 ## Clickhouse settings
 
 | variable | description |
 |----------|-------------|
-| `EXPORTER_CLICKHOUSE__ENABLE_UPLOAD` | Enable upload data to Clickhouse. Default is `True`
-| `EXPORTER_CLICKHOUSE__HOST` | Clickhouse host. Default: `localhost`
-| `EXPORTER_CLICKHOUSE__PROTO` | Clickhouse protocol: http or https. Default: `http`
+| `EXPORTER_CLICKHOUSE__ENABLE_UPLOAD` | Enable upload data to Clickhouse. Default is `True` |
+| `EXPORTER_CLICKHOUSE__HOST` | Clickhouse host. Default: `localhost` |
+| `EXPORTER_CLICKHOUSE__PROTO` | Clickhouse protocol: http or https. Default: `http` |
 | `EXPORTER_CLICKHOUSE__PORT` | Clickhouse HTTP(S) port. Default: `8123`
-| `EXPORTER_CLICKHOUSE__CACERT_PATH` | Path to CA cert. Only for HTTPS proto. Default is empty
-| `EXPORTER_CLICKHOUSE__SERVERLESS_PROXY_ID` | Yandex Cloud Functions proxy ID. Default is empty
-| `EXPORTER_CLICKHOUSE__USERNAME` | Clickhouse username. Default: `default`
-| `EXPORTER_CLICKHOUSE__PASSWORD` | Clickhouse password. Can be empty. Default is empty
-| `EXPORTER_CLICKHOUSE__DATABASE` | Clickhouse database. Default: `agile`
-| `EXPORTER_CLICKHOUSE__ISSUES_TABLE` | Clickhouse table for issues metadata. Default: `issues`
-| `EXPORTER_CLICKHOUSE__ISSUE_METRICS_TABLE` | Clickhouse table for issue metrics. Default: `issue_metrics`
-| `EXPORTER_CLICKHOUSE__AUTO_DEDUPLICATE` | Execute `OPTIMIZE` after each `INSERT`. Default is `True`
-| `EXPORTER_CLICKHOUSE__BACKOFF_BASE_DELAY` | Base delay for backoff strategy. Default: `0.5` (sec)
-| `EXPORTER_CLICKHOUSE__BACKOFF_EXPO_FACTOR` | Exponential factor for multiply every try. Default: `2.5` (sec)
-| `EXPORTER_CLICKHOUSE__BACKOFF_MAX_TRIES` | Max tries for backoff strategy. Default: `3`
-| `EXPORTER_CLICKHOUSE__BACKOFF_JITTER` | Enable jitter (randomize delay) for retries. Default: `True`
+| `EXPORTER_CLICKHOUSE__CACERT_PATH` | Path to CA cert. Only for HTTPS proto. Default is empty |
+| `EXPORTER_CLICKHOUSE__SERVERLESS_PROXY_ID` | Yandex Cloud Functions proxy ID. Default is empty |
+| `EXPORTER_CLICKHOUSE__USERNAME` | Clickhouse username. Default: `default` |
+| `EXPORTER_CLICKHOUSE__PASSWORD` | Clickhouse password. Can be empty. Default is empty |
+| `EXPORTER_CLICKHOUSE__DATABASE` | Clickhouse database. Default: `agile` |
+| `EXPORTER_CLICKHOUSE__ISSUES_TABLE` | Clickhouse table for issues metadata. Default: `issues` |
+| `EXPORTER_CLICKHOUSE__ISSUE_METRICS_TABLE` | Clickhouse table for issue metrics. Default: `issue_metrics` |
+| `EXPORTER_CLICKHOUSE__ISSUES_CHANGELOG_TABLE` | Clickhouse table for issues changelog. Default: `issues_changelog` |
+| `EXPORTER_CLICKHOUSE__AUTO_DEDUPLICATE` | Execute `OPTIMIZE` after each `INSERT`. Default is `True` |
+| `EXPORTER_CLICKHOUSE__BACKOFF_BASE_DELAY` | Base delay for backoff strategy. Default: `0.5` (sec) |
+| `EXPORTER_CLICKHOUSE__BACKOFF_EXPO_FACTOR` | Exponential factor for multiply every try. Default: `2.5` (sec) |
+| `EXPORTER_CLICKHOUSE__BACKOFF_MAX_TRIES` | Max tries for backoff strategy. Default: `3` |
+| `EXPORTER_CLICKHOUSE__BACKOFF_JITTER` | Enable jitter (randomize delay) for retries. Default: `True` |
 
 ## State settings
 
 | variable | description |
 |----------|-------------|
-| `EXPORTER_STATE__STORAGE` | Storage type for StateKeeper. Can be: `jsonfile`, `redis`, `custom`. Default: `jsonfile`
-| `EXPORTER_STATE__REDIS_DSN` | Connection string for Redis state storage when storage type is `redis`. Default is empty.
-| `EXPORTER_STATE__JSONFILE_STRATEGY` | File store strategy for `jsonfile` storage type. Can be `s3` or `local`. Default: `local`
-| `EXPORTER_STATE__JSONFILE_PATH` | Path to JSON state file. Default: `./state.json`
-| `EXPORTER_STATE__JSONFILE_S3_BUCKET` | Bucket for `s3` strategy. Default is empty
-| `EXPORTER_STATE__JSONFILE_S3_REGION` | Region for `s3` strategy. Default is `eu-east-1`
-| `EXPORTER_STATE__JSONFILE_S3_ENDPOINT` | Endpoint URL for `s3` strategy. Default is empty
-| `EXPORTER_STATE__JSONFILE_S3_ACCESS_KEY` | AWS access key id for `s3` strategy. Default is empty
-| `EXPORTER_STATE__JSONFILE_S3_SECRET_KEY` | AWS secret key for `s3` strategy. Default is empty
-| `EXPORTER_STATE__CUSTOM_STORAGE_PARAMS` | Settings for custom storage params as `dict`. Default: `{}`
+| `EXPORTER_STATE__STORAGE` | Storage type for StateKeeper. Can be: `jsonfile`, `redis`, `custom`. Default: `jsonfile` |
+| `EXPORTER_STATE__REDIS_DSN` | Connection string for Redis state storage when storage type is `redis`. Default is empty. |
+| `EXPORTER_STATE__JSONFILE_STRATEGY` | File store strategy for `jsonfile` storage type. Can be `s3` or `local`. Default: `local` |
+| `EXPORTER_STATE__JSONFILE_PATH` | Path to JSON state file. Default: `./state.json` |
+| `EXPORTER_STATE__JSONFILE_S3_BUCKET` | Bucket for `s3` strategy. Default is empty |
+| `EXPORTER_STATE__JSONFILE_S3_REGION` | Region for `s3` strategy. Default is `eu-east-1` |
+| `EXPORTER_STATE__JSONFILE_S3_ENDPOINT` | Endpoint URL for `s3` strategy. Default is empty |
+| `EXPORTER_STATE__JSONFILE_S3_ACCESS_KEY` | AWS access key id for `s3` strategy. Default is empty |
+| `EXPORTER_STATE__JSONFILE_S3_SECRET_KEY` | AWS secret key for `s3` strategy. Default is empty |
+| `EXPORTER_STATE__CUSTOM_STORAGE_PARAMS` | Settings for custom storage params as `dict`. Default: `{}` |
 
 ## Observability settings
 
 | variable | description |
 |----------|-------------|
-| `EXPORTER_MONITORING__METRICS_ENABLED` | Enable send statsd tagged metrics. Default is `False`
-| `EXPORTER_MONITORING__METRICS_HOST` | DogStatsD / statsd host. Default: `localhost`
-| `EXPORTER_MONITORING__METRICS_PORT` | DogStatsD / statsd port. Default: `8125`
-| `EXPORTER_MONITORING__METRICS_BASE_PREFIX` | Prefix for metrics name. Default: `tracker_exporter`
-| `EXPORTER_MONITORING__METRICS_BASE_LABELS` | List of tags for metrics. Example: `["project:internal",]`. Default is empty
-| `EXPORTER_MONITORING__SENTRY_ENABLED` | Enable send exception stacktrace to Sentry. Default is `False`
-| `EXPORTER_MONITORING__SENTRY_DSN` | Sentry DSN. Default is empty
+| `EXPORTER_MONITORING__METRICS_ENABLED` | Enable send statsd tagged metrics. Default is `False` |
+| `EXPORTER_MONITORING__METRICS_HOST` | DogStatsD / statsd host. Default: `localhost` |
+| `EXPORTER_MONITORING__METRICS_PORT` | DogStatsD / statsd port. Default: `8125` |
+| `EXPORTER_MONITORING__METRICS_BASE_PREFIX` | Prefix for metrics name. Default: `tracker_exporter` |
+| `EXPORTER_MONITORING__METRICS_BASE_LABELS` | List of tags for metrics. Example: `["project:internal",]`. Default is empty |
+| `EXPORTER_MONITORING__SENTRY_ENABLED` | Enable send exception stacktrace to Sentry. Default is `False` |
+| `EXPORTER_MONITORING__SENTRY_DSN` | Sentry DSN. Default is empty |
 
 
 # Monitoring

@@ -27,7 +27,7 @@ class ClickhouseClient:
         cacert: str = config.clickhouse.cacert_path,
         serverless_proxy_id: str = config.clickhouse.serverless_proxy_id,
         params: dict = {},
-        http_timeout: int = 10
+        http_timeout: int = 10,
     ) -> None:
         self.host = host
         self.port = port
@@ -45,10 +45,11 @@ class ClickhouseClient:
             assert self.cacert is not None
 
     def _prepare_headers(self):
+        # fmt: off
         self.headers = {
             "Content-Type": "application/json",
             "X-Clickhouse-User": self.username
-        }
+        }  # fmt: on
         if self.password is not None:
             self.headers["X-Clickhouse-Key"] = self.password
 
@@ -82,8 +83,12 @@ class ClickhouseClient:
         try:
             if self.proto == ClickhouseProto.HTTPS:
                 response = requests.post(
-                    url=url, headers=self.headers, params=params,
-                    data=query, timeout=self.timeout, verify=self.cacert
+                    url=url,
+                    headers=self.headers,
+                    params=params,
+                    data=query,
+                    timeout=self.timeout,
+                    verify=self.cacert,
                 )
             else:
                 response = requests.post(
@@ -92,16 +97,11 @@ class ClickhouseClient:
         except (Timeout, ConnectionError):
             raise
         except Exception as exc:
-            logger.exception(
-                f"Could not execute query in Clickhouse: {exc}"
-            )
+            logger.exception(f"Could not execute query in Clickhouse: {exc}")
             raise ClickhouseError(exc) from exc
         else:
             if not response.ok:
-                msg = (
-                    f"Could not execute query in Clickhouse. "
-                    f"Status: {response.status_code}. {response.text}"
-                )
+                msg = f"Could not execute query in Clickhouse. Status: {response.status_code}. {response.text}"
                 logger.error(msg)
                 raise ClickhouseError(msg)
         return response
@@ -117,9 +117,7 @@ class ClickhouseClient:
         logger.debug(f"Inserting batch ({batch_size}): {data}")
 
         with monitoring.send_time_metric("clickhouse_insert_time_seconds", tags):
-            query_result = self.execute(
-                f"INSERT INTO {database}.{table} FORMAT JSONEachRow {data}"
-            )
+            query_result = self.execute(f"INSERT INTO {database}.{table} FORMAT JSONEachRow {data}")
 
         monitoring.send_gauge_metric("clickhouse_inserted_rows", batch_size, tags)
         return query_result
