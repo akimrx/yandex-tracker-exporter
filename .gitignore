@@ -4,6 +4,7 @@ migrate
 test.json
 state.json
 .ruff*
+exporter
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

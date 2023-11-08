@@ -13,7 +13,7 @@ services:
       - "8123:8123"
 
   tracker-exporter:
-    image: akimrx/tracker_exporter:latest
+    build: .
     container_name: tracker-exporter
     hostname: tracker-exporter
     restart: unless-stopped

@@ -2,7 +2,6 @@
 [![PyPi Package](https://img.shields.io/pypi/v/tracker-exporter.svg)](https://pypi.org/project/tracker-exporter/)
 [![Codecov](https://codecov.io/gh/akimrx/yandex-tracker-exporter/branch/master/graph/badge.svg)](https://app.codecov.io/gh/akimrx/yandex-tracker-exporter)
 [![Tests](https://github.com/akimrx/yandex-tracker-exporter/workflows/Tests/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
-[![Docker](https://github.com/akimrx/yandex-tracker-exporter/workflows/Docker/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
 
 
 # Yandex.Tracker ETL
@@ -125,8 +124,11 @@ tracker-exporter --env-file /home/akimrx/tracker/.settings
 
 ```bash
 
-cd yandex-tracker-exporter/docker
-docker-compose up -d
+cd yandex-tracker-exporter
+docker-compose up -d --build
+
+# Run clickhouse migrations
+
 docker logs tracker-exporter -f
 ```
 

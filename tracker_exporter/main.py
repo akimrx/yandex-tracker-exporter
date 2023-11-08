@@ -8,7 +8,7 @@ import warnings
 import argparse
 
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 import sentry_sdk
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -28,6 +28,8 @@ warnings.filterwarnings("ignore")
 
 if args.env_file:
     load_dotenv(args.env_file)
+else:
+    load_dotenv(find_dotenv())
 
 # pylint: disable=C0413
 from tracker_exporter.services.monitoring import sentry_events_filter
