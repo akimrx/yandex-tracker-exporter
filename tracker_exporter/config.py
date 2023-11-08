@@ -190,7 +190,7 @@ class Settings(BaseSettings):
     state: StateSettings = StateSettings()
     stateful: bool = False
     stateful_initial_range: str = "1w"
-    changelog_export_enabled: bool = True
+    changelog_export_enabled: bool = False
     log_etl_stats: bool = True
     log_etl_stats_each_n_iter: int = 100
 

@@ -1,5 +1,5 @@
 FROM python:3.10-slim
-LABEL maintainer="a.faskhutdinov@yclients.tech"
+LABEL maintainer="akimstrong@yandex.ru"
 LABEL name="tools/tracker-exporter"
 
 ENV DEBIAN_FRONTEND noninteractive

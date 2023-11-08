@@ -33,6 +33,7 @@ if args.env_file:
 from tracker_exporter.services.monitoring import sentry_events_filter
 from tracker_exporter.services.state import StateKeeper, LocalFileStorageStrategy, JsonStateStorage
 from tracker_exporter.models.base import StateStorageTypes, JsonStorageStrategies
+from tracker_exporter.models.issue import TrackerIssue
 from tracker_exporter.etl import YandexTrackerETL
 from tracker_exporter.services.tracker import YandexTrackerClient
 from tracker_exporter.services.clickhouse import ClickhouseClient
@@ -103,12 +104,13 @@ def configure_state_service() -> StateKeeper | None:
     return StateKeeper(storage)
 
 
-def run_etl(ignore_exceptions: bool = False) -> None:
+def run_etl(ignore_exceptions: bool = False, issue_model: TrackerIssue = TrackerIssue) -> None:
     """Start ETL process."""
     etl = YandexTrackerETL(
         tracker_client=YandexTrackerClient(),
         clickhouse_client=ClickhouseClient(),
         statekeeper=configure_state_service(),
+        issue_model=issue_model,
     )
     etl.run(
         stateful=config.stateful,

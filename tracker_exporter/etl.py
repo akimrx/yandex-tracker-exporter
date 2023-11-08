@@ -32,6 +32,7 @@ class YandexTrackerETL:
         tracker_client: YandexTrackerClient,
         clickhouse_client: ClickhouseClient,
         statekeeper: StateKeeper | None = None,
+        issue_model: TrackerIssue = TrackerIssue,
         database: str = config.clickhouse.database,
         issues_table: str = config.clickhouse.issues_table,
         metrics_table: str = config.clickhouse.issue_metrics_table,
@@ -42,6 +43,7 @@ class YandexTrackerETL:
         self.tracker = tracker_client
         self.clickhouse = clickhouse_client
         self.state = statekeeper
+        self.issue_model = issue_model
         self.database = database
         self.issues_table = issues_table
         self.metrics_table = metrics_table
@@ -111,7 +113,7 @@ class YandexTrackerETL:
     @monitoring.send_time_metric("issue_transform_time_seconds")
     def _transform(self, issue: Issues) -> ClickhousePayload:
         """Transform issue to storage-compatible payload format."""
-        _issue = TrackerIssue(issue)
+        _issue = self.issue_model(issue)
         changelog = _issue._changelog_events
         metrics = _issue.metrics()
 
@@ -146,7 +148,7 @@ class YandexTrackerETL:
             logger.info("Paginated list received, possible new state will be calculated later")
         else:
             pagination = False
-            possible_new_state = self._get_possible_new_state(TrackerIssue(found_issues[-1]))
+            possible_new_state = self._get_possible_new_state(self.issue_model(found_issues[-1]))
 
         et_start_time = time.time()
         for i, tracker_issue in enumerate(found_issues):
@@ -160,7 +162,7 @@ class YandexTrackerETL:
                 issue, changelog, issue_metrics = self._transform(tracker_issue).model_dump().values()
                 if pagination and i == len(found_issues):
                     logger.info("Trying to get new state from last iteration")
-                    possible_new_state = self._get_possible_new_state(TrackerIssue(tracker_issue))
+                    possible_new_state = self._get_possible_new_state(self.issue_model(tracker_issue))
                 issues.append(issue)
                 changelog_events.extend(changelog)
                 if not issue_metrics:

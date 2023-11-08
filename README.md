@@ -50,6 +50,36 @@ This is also the answer to the question why the tool is not asynchronous. Limits
 
 The processing speed of one issue depends on how many changes there are in the issue in its history. More changes means longer processing.
 
+## Extend exported issue data by your custom fields
+
+Just declare your `main.py` module in which extended the [TrackerIssue](tracker_exporter/models/issue.py#L65) model using multiple inheritance like
+
+```python
+
+from tracker_exporter.models.issue import TrackerIssue
+from tracker_exporter.utils.helpers import validate_resource
+from tracker_exporter import run_etl
+
+
+class CustomIssueFields:
+    def __init__(self, issue: Issues) -> None:
+        self.foo_custom_field = validate_resource(issue, "fooCustomField")
+        self.bar_custom_field = validate_resource(issue, "barCustomField")
+
+
+class ExtendedTrackerIssue(TrackerIssue, CustomIssueFields):
+    def __init__(self, issue: Issues) -> None:
+        super().__init__(issue)
+        CustomIssueFields.__init__(self, issue)
+
+
+run_etl(issue_model=ExtendedTrackerIssue)
+
+```
+
+See full example [here](examples/extended_model/main.py)
+
+
 ## Usage
 
 ### Native
@@ -286,7 +316,7 @@ See config declaration [here](/tracker_exporter/config.py)
 |----------|-------------|
 | `EXPORTER_STATEFUL` | Enable stateful mode. Required `EXPORTER_STATE__*` params. Default is `False` |
 | `EXPORTER_STATEFUL_INITIAL_RANGE` | Initial search range when unknown last state. Default: `1w` |
-| `EXPORTER_CHANGELOG_EXPORT_ENABLED` | Enable export all issues changelog to Clickhouse. Can greatly slow down exports. Default is `True` |
+| `EXPORTER_CHANGELOG_EXPORT_ENABLED` | Enable export all issues changelog to Clickhouse. **Can greatly slow down exports** (x5 - x10). Default is `False` |
 | `EXPORTER_LOGLEVEL` | ETL log level. Default: `info` |
 | `EXPORTER_LOG_ETL_STATS` | Enable logging transform stats every N iteration. Default is `True` |
 | `EXPORTER_LOG_ETL_STATS_EACH_N_ITER` | How many iterations must pass to log stats. Default is `100` |
