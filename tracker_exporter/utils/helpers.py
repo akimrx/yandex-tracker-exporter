@@ -327,7 +327,7 @@ def log_etl_stats(iteration: int, remaining: int, elapsed: float, entity: str = 
     elapsed_time = to_human_time(elapsed)
 
     try:
-        avg_time = elapsed // iteration
+        avg_time = elapsed / iteration
         avg_task_transform = f"{avg_time:.2f}ms" if avg_time < 1 else to_human_time(avg_time)
     except ZeroDivisionError:
         avg_task_transform = "calculating.."
