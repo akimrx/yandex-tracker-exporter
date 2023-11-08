@@ -2,7 +2,6 @@
 [![PyPi Package](https://img.shields.io/pypi/v/tracker-exporter.svg)](https://pypi.org/project/tracker-exporter/)
 [![Codecov](https://codecov.io/gh/akimrx/yandex-tracker-exporter/branch/master/graph/badge.svg)](https://app.codecov.io/gh/akimrx/yandex-tracker-exporter)
 [![Tests](https://github.com/akimrx/yandex-tracker-exporter/workflows/Tests/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
-[![PyPI](https://github.com/akimrx/yandex-tracker-exporter/workflows/PyPI/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
 [![Docker](https://github.com/akimrx/yandex-tracker-exporter/workflows/Docker/badge.svg)](https://github.com/akimrx/yandex-tracker-exporter)
 
 
@@ -228,9 +227,7 @@ Probably, you should get it in the function code, because the IAM-token works fo
 * Save trigger
 
 
-## Yandex.Cloud – Serverless Containers
 
-TODO
 
 
 # Visualization
