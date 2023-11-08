@@ -2,7 +2,7 @@ version: '3.1'
 
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:23.3
+    image: clickhouse/clickhouse-server:23.8
     container_name: clickhouse
     hostname: clickhouse
     restart: unless-stopped
@@ -18,16 +18,18 @@ services:
     hostname: tracker-exporter
     restart: unless-stopped
     environment:
-      EXPORTER_TRACKER__TOKEN: your_token
-      EXPORTER_TRACKER__CLOUD_ORG_ID: your_org_id
+      EXPORTER_CHANGELOG_EXPORT_ENABLED: "false"
+      EXPORTER_TRACKER__TOKEN: ${TRACKER_TOKEN}
+      EXPORTER_TRACKER__CLOUD_ORG_ID: ${TRACKER_ORG_ID}
       EXPORTER_CLICKHOUSE__HOST: clickhouse
       EXPORTER_CLICKHOUSE__PORT: 8123
-      EXPORTER_CHANGELOG_EXPORT_ENABLED: "true"
+      EXPORTER_CLICKHOUSE__ENABLE_UPLOAD: "true"
       EXPORTER_STATEFUL: "true"
+      EXPORTER_STATEFUL_INITIAL_RANGE: "1d"
       EXPORTER_STATE__STORAGE: jsonfile
       EXPORTER_STATE__JSONFILE_STRATEGY: local
       EXPORTER_STATE__JSONFILE_PATH: /opt/exporter/state.json
     volumes:
-      - "./:/opt/exporter"
+      - "./exporter:/opt/exporter:rw"
     depends_on:
       - clickhouse

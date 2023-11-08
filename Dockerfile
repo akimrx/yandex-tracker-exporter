@@ -1,26 +1,28 @@
+FROM python:3.10-slim as builder
+
+WORKDIR /usr/src/app
+COPY ./requirements.txt ./
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && pip install --no-cache-dir --prefix=/usr/src/app/dist -r requirements.txt \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+
 FROM python:3.10-slim
-LABEL maintainer="akimstrong@yandex.ru"
-LABEL name="tools/tracker-exporter"
 
-ENV DEBIAN_FRONTEND noninteractive
+COPY --from=builder /usr/src/app/dist /usr/local
+WORKDIR /opt/exporter
+
+COPY . .
+RUN pip install --no-cache-dir .
+RUN rm -rf /opt/exporter
+
 ENV TZ=Europe/Moscow
-
-# Prepare environment & packages
-RUN apt-get -qq update && \
-    apt-get install -yqq tzdata && \
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone && \
-    dpkg-reconfigure -f noninteractive tzdata && \
-    apt-get clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends tzdata && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure exporter
-RUN mkdir -p /opt/exporter
-COPY ./requirements.txt requirements.txt
-COPY . /opt/exporter/
-
-# Install exporter
 WORKDIR /opt/exporter
-RUN python3 setup.py install
-
 CMD ["tracker-exporter"]

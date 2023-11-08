@@ -93,3 +93,18 @@ venv*
 .idea
 tests
 .git
+
+
+# Project
+
+.env
+.env.example
+data-migrate.sh
+Makefile
+docker-compose.*
+state.*
+TODO.*
+migrate
+examples
+docs
+clickhouse

@@ -242,10 +242,16 @@ class YandexTrackerETL:
             else:
                 if all((stateful, self.state, possible_new_state)):
                     self.state.set(self.state_key, possible_new_state)
+                else:
+                    logger.info(
+                        "The state snapshot will not be saved. Not all conditions are met "
+                        f"{stateful=} {self.state=} {possible_new_state=}"
+                    )
                 monitoring.send_gauge_metric("last_update_timestamp", value=int(time.time()))
             finally:
                 monitoring.send_gauge_metric("etl_upload_status", value=1 if success else 2)
         else:
-            print(issues)
-            print(metrics)
-            print(changelogs)
+            logger.info("The state snapshot will not be saved because the upload to the storage is disabled.")
+            print(issues if issues else "Empty issues")
+            print(metrics if metrics else "Empty metrics")
+            print(changelogs if changelogs else "Empty changelogs")
