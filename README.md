@@ -17,6 +17,10 @@ Require:
 * Python `>=3.10.*`
 * Clickhouse + specific [tables](/migrations/clickhouse/) (how to run [migration](#migration))
 
+## Datalens Demo
+
+**[Deploy this demo dashboard to your Datalens instance](https://datalens.yandex.ru/marketplace/f2ejcgrg2h910r7cc93u)**
+
 ## What does this tool do?
 
 **ETL** – Export, transform, load.
