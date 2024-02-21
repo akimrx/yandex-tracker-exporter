@@ -239,7 +239,7 @@ Probably, you should get it in the function code, because the IAM-token works fo
 # Visualization
 
 You can use any BI/observability tool for visualization, for example:
-- Yandex DataLens (btw, this is [opensource](https://github.com/datalens-tech/datalens))
+- Yandex DataLens (btw, this is [opensource](https://github.com/datalens-tech/datalens)). Also see [demo set](https://datalens.yandex.ru/marketplace/f2ejcgrg2h910r7cc93u)
 - Apache Superset
 - PowerBI
 - Grafana
