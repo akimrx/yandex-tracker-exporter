@@ -348,7 +348,7 @@ See config declaration [here](/tracker_exporter/config.py)
 | `EXPORTER_TRACKER__TIMEZONE` | Yandex.Tracker timezone. Default: `Europe/Moscow` |
 | `EXPORTER_TRACKER__SEARCH__QUERY` | Custom query for search issues. This variable has the highest priority and overrides other search parameters. Default is empty |
 | `EXPORTER_TRACKER__SEARCH__RANGE` | Search issues window. Has no effect in stateful mode. Default: `2h` |
-| `EXPORTER_TRACKER__SEARCH__QUEUES` | Include or exclude queues in search. Example: `DEV,SRE,!TEST,!TRASH` Default is empty |
+| `EXPORTER_TRACKER__SEARCH__QUEUES` | Include or exclude queues in search. Example: `DEV,SRE,!TEST,!TRASH` Default is empty (i.e. all queues) |
 | `EXPORTER_TRACKER__SEARCH__PER_PAGE_LIMIT` | Search results per page. Default: `100` |
 
 ## Clickhouse settings
