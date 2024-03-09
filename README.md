@@ -446,3 +446,7 @@ Based on DogStatsD tagged format. VictoriaMetrics compatible.
 | `tracker_exporter_clickhouse_insert_time_seconds` | time | database, table | Insert per table duration time in seconds |
 | `tracker_exporter_clickhouse_inserted_rows` | count | database, table | Inserted rows per table |
 | `tracker_exporter_clickhouse_deduplicate_time_seconds` | time | database, table | Optimize execute time duration in seconds |
+
+
+### Metrics on dashboard demo
+![](/docs/images/etl_metrics.jpeg)
