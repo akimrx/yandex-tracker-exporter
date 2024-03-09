@@ -55,7 +55,7 @@ Employees start working on the task, the history of the task and the actions of 
 4. QA Engineer returned the task for revision, the transition  `Testing -> In progress`, the time in the status `Testing` has been calculated, the status `In progress` has the previous metric and has not changed yet.
 5. The task has been finalized, re-submitted to testing, the transition `In progress -> Testing`, the delta of this transition is added incrementally to the previous value of the metric `In progress`, but `Testing` has not changed yet.
 6 The task has been tested and submitted for release, the transition  `Testing -> Ready for release`, the delta of this transition is incrementally added to the previous value of the metric `Testing`, the `Ready for Release` status is not considered yet.
-7. The release is completed, the task is closed, the transition `Ready for release -> Closed`, the metric for the `Ready for Release` status is considered. **The metric of the final status (`Closed`) of this task will not be (re)calculated.**
+7. The release is completed, the task is closed, the transition `Ready for release -> Closed`, the metric for the `Ready for Release` status is considered. **The metric of the final status of this task (`Closed`) will not be (re)calculated.**
 
 #### Planned improvements
 Consider the status metric if a transition has been made to it, even if such a status is current and the next transition has not yet been made from it. Exclude the final statuses from the innovation.
