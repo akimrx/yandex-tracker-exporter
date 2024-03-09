@@ -37,7 +37,7 @@ Sometimes he has to go to a lot of endpoints to collect what needs to be taken t
 
 ### Cycle time calculation algorithm
 
-Currently, status metrics are calculated based on the transition between statuses (based on issue changelog). The counting algorithm will be improved.
+Currently, status metrics are calculated based on the transition between statuses (using a issue changelog). The counting algorithm will be improved.
 
 Let's imagine that the task can be, for example, only in 5 statuses:
 
