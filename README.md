@@ -33,7 +33,7 @@ Sometimes he has to go to a lot of endpoints to collect what needs to be taken t
 **Collects:**
 - Issue metadata (i.e. title, author, assignee, components, tags, status, etc)
 - Issue changelog (i.e the history of all the events that occurred with the task)
-- Calculated issue metrics by status (i.e. the time spent in a particular status)
+- Calculated issue metrics by status (i.e. the time spent in a particular status) like Cycle & Lead time
 
 ### Cycle time calculation algorithm
 
