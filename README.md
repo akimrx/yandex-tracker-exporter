@@ -35,6 +35,31 @@ Sometimes he has to go to a lot of endpoints to collect what needs to be taken t
 - Issue changelog (i.e the history of all the events that occurred with the task)
 - Calculated issue metrics by status (i.e. the time spent in a particular status)
 
+### Cycle time calculation algorithm
+
+Currently, status metrics are calculated based on the transition between statuses (based on issue changelog). The counting algorithm will be improved.
+
+Let's imagine that the task can be, for example, only in 5 statuses:
+
+- Open
+- In progress
+- Testing
+- Ready for release
+- Closed
+
+Employees start working on the task, the history of the task and the actions of employees is described below, with a correlation to the work of the exporter.
+
+1. A new task has created with the initial status `Open`, metrics are not counted.
+2. The developer has taken the task to work, the transition is `Open -> In progress`, the metric for the `Open` status has been calculated, while the current status `In progress` is not yet considered.
+3. The developer has submitted the task to testing, the transition `In progress -> Testing`, the metric for the status `In progress` has been calculated, while the current status is being `Testing` is not yet considered.
+4. QA Engineer returned the task for revision, the transition  `Testing -> In progress`, the time in the status `Testing` has been calculated, the status `In progress` has the previous metric and has not changed yet.
+5. The task has been finalized, re-submitted to testing, the transition `In progress -> Testing`, the delta of this transition is added incrementally to the previous value of the metric `In progress`, but `Testing` has not changed yet.
+6 The task has been tested and submitted for release, the transition  `Testing -> Ready for release`, the delta of this transition is incrementally added to the previous value of the metric `Testing`, the `Ready for Release` status is not considered yet.
+7. The release is completed, the task is closed, the transition `Ready for release -> Closed`, the metric for the `Ready for Release` status is considered. **The metric of the final status (`Closed`) of this task will not be (re)calculated.**
+
+#### Planned improvements
+Consider the status metric if a transition has been made to it, even if such a status is current and the next transition has not yet been made from it. Exclude the final statuses from the innovation.
+
 ## Tech stats
 
 > Metrics based on 100,000+ constantly changing production issues
