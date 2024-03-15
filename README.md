@@ -35,6 +35,7 @@ By default, the exporter processes only those tasks that were changed during the
 So, all tasks that have activity (changes) will be uploaded to the storage. Something like eventual consistency.
 
 If you need to upload historical data that will never be updated again, you can flexibly control behavior through the [environment variables described below](#general-settings).  
+
 Here are some recipes for a one-shot export:
 1. Launch a exporter with the parameter `EXPORTER_TRACKER__SEARCH__RANGE`, for example, a year ago
 2. More specifically: describe the query in the tracker's QL format using the `EXPORTER_TRACKER__SEARCH__QUERY` environment variable. This way you can export point bundles of tasks and bypass with the [Tracker's strict limit of 10,000 tasks](https://github.com/yandex/yandex_tracker_client/issues/13).
