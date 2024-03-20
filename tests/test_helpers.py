@@ -138,6 +138,11 @@ def test_validate_resource(resource, attribute, low, expected):
 @pytest.mark.parametrize(
     "text, expected",
     [
+        ("русскаястрока", "русскаястрока"),
+        ("РусскийВерблюд", "русский_верблюд"),
+        ("Русские пробелы", "русские_пробелы"),
+        ("РусскийДлинныйВерблюдПлюсЧисло1", "русский_длинный_верблюд_плюс_число_1"),
+        ("singlestring", "singlestring"),
         ("camelCase", "camel_case"),
         ("longCamelCase", "long_camel_case"),
         ("longCamelCaseWithNumber1", "long_camel_case_with_number_1"),

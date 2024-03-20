@@ -108,10 +108,11 @@ def to_snake_case(text: str) -> str:
     if text.strip() == "":
         return text.strip()
 
-    text = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", text)
-    text = re.sub(r"(?<=[a-z])(?=\d)", "_", text)
-    text = re.sub(r"(?<=\d)(?=[a-z])", "_", text)
-    text = re.sub(r"[^a-zA-Z0-9_]", "_", text)
+    text = re.sub(r"(?<=[a-zа-яё])(?=[A-ZА-ЯЁ])", "_", text)
+    text = re.sub(r"(?<=[a-zа-яё])(?=\d)", "_", text)
+    text = re.sub(r"(?<=\d)(?=[a-zа-яё])", "_", text)
+    text = re.sub(r"[^a-zA-Zа-яёА-ЯЁ0-9_]", "_", text)
+
 
     return text.lower()
 
