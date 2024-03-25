@@ -136,6 +136,7 @@ class YandexTrackerETL:
         metrics = []
         changelog_events = []
         issues_without_metrics = 0
+        possible_new_state = None
         logger.info("Searching, exporting and transform issues...")
 
         found_issues = self.tracker.search_issues(query=query, filter=filter, order=order, limit=limit)
@@ -158,18 +159,23 @@ class YandexTrackerETL:
                 elif i % config.log_etl_stats_each_n_iter == 0:
                     elapsed_time = time.time() - et_start_time
                     log_etl_stats(iteration=i, remaining=len(found_issues), elapsed=elapsed_time)
+
             try:
                 issue, changelog, issue_metrics = self._transform(tracker_issue).model_dump().values()
-                if pagination and i == len(found_issues):
+
+                if pagination and i == len(found_issues) - 1:
                     logger.info("Trying to get new state from last iteration")
                     possible_new_state = self._get_possible_new_state(self.issue_model(tracker_issue))
+
                 issues.append(issue)
                 changelog_events.extend(changelog)
+
                 if not issue_metrics:
                     logger.debug(f"Ignore {tracker_issue.key} because metrics is empty")
                     issues_without_metrics += 1
                 else:
                     metrics.extend(issue_metrics)
+
                 monitoring.send_count_metric("issues_total_processed_count", 1)
             except Forbidden as forbidden:
                 logger.warning(f"Can't read {tracker_issue.key}, permission denied. Details: {forbidden}")
@@ -209,7 +215,7 @@ class YandexTrackerETL:
         query = self._build_search_query(stateful, queues, search_query, search_range)
         try:
             issues, changelogs, metrics, possible_new_state = self._export_and_transform(**query, limit=limit)
-            if stateful:
+            if stateful and possible_new_state is not None:
                 logger.info(f"Possible new state: {possible_new_state}")
                 last_saved_state = self.state.get(self.state_key)
                 if last_saved_state == possible_new_state and len(issues) <= 1 and len(metrics) <= 1:
