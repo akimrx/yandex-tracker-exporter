@@ -47,6 +47,7 @@ Finally run exporter with `--run-once` flag.
 By default, the exporter does not store the state, and as described above, it works within the sliding window. This behavior is not the most optimal, because the exporter performs repeated processing for previous tasks.
 
 The behavior can be changed by enabling stateful mode, which supports 3 backends:
+
 - Local JSON file
 - Remote JSON file (S3 object storage)
 - Redis
@@ -95,8 +96,6 @@ EXPORTER_STATE__REDIS_DSN=redis://localhost:6379
 
 ...
 ```
-
-#### Run once
 
 **Collects:**
 
