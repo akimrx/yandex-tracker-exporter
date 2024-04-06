@@ -23,6 +23,7 @@ parser.add_argument(
     required=False,
     help="Path to .env file",
 )
+parser.add_argument("--run-once", dest="run_once", action="store_true", help="Run ETL once.")
 args, _ = parser.parse_known_args()
 warnings.filterwarnings("ignore")
 
@@ -33,8 +34,8 @@ else:
 
 # pylint: disable=C0413
 from tracker_exporter.services.monitoring import sentry_events_filter
-from tracker_exporter.services.state import StateKeeper, LocalFileStorageStrategy, JsonStateStorage
-from tracker_exporter.models.base import StateStorageTypes, JsonStorageStrategies
+from tracker_exporter.state.managers import AbstractStateManager
+from tracker_exporter.state.factory import StateManagerFactory, IObjectStorageProps
 from tracker_exporter.models.issue import TrackerIssue
 from tracker_exporter.etl import YandexTrackerETL
 from tracker_exporter.services.tracker import YandexTrackerClient
@@ -79,31 +80,29 @@ def configure_sentry() -> None:
     logger.info(f"Sentry send traces is {'enabled' if config.monitoring.sentry_enabled else 'disabled'}")
 
 
-def configure_jsonfile_storage() -> JsonStateStorage:
-    """Configure and returns storage for StateKeeper."""
-    match config.state.jsonfile_strategy:
-        case JsonStorageStrategies.local:
-            storage_strategy = LocalFileStorageStrategy(config.state.jsonfile_path)
-        case JsonStorageStrategies.s3:
-            raise NotImplementedError
-        case _:
-            raise ValueError
-    return JsonStateStorage(storage_strategy)
-
-
-def configure_state_service() -> StateKeeper | None:
+def configure_state_manager() -> AbstractStateManager | None:
     """Configure StateKeeper for ETL stateful mode."""
     if not config.stateful:
         return
 
     match config.state.storage:
-        case StateStorageTypes.jsonfile:
-            storage = configure_jsonfile_storage()
-        case StateStorageTypes.redis:
+        case "jsonfile":
+            s3_props: IObjectStorageProps = IObjectStorageProps(
+                bucket_name=config.state.jsonfile_s3_bucket,
+                access_key_id=config.state.jsonfile_s3_access_key,
+                secret_key=config.state.jsonfile_s3_secret_key,
+                endpoint_url=config.state.jsonfile_s3_endpoint,
+                region=config.state.jsonfile_s3_region,
+            )
+            return StateManagerFactory.create_file_state_manager(
+                strategy=config.state.jsonfile_strategy, filename=config.state.jsonfile_path, **s3_props
+            )
+        case "redis":
+            return StateManagerFactory.create_redis_state_manager(config.state.redis_dsn)
+        case "custom":
             raise NotImplementedError
         case _:
             raise ValueError
-    return StateKeeper(storage)
 
 
 def run_etl(ignore_exceptions: bool = False, issue_model: TrackerIssue = TrackerIssue) -> None:
@@ -111,7 +110,7 @@ def run_etl(ignore_exceptions: bool = False, issue_model: TrackerIssue = Tracker
     etl = YandexTrackerETL(
         tracker_client=YandexTrackerClient(),
         clickhouse_client=ClickhouseClient(),
-        statekeeper=configure_state_service(),
+        state_manager=configure_state_manager(),
         issue_model=issue_model,
     )
     etl.run(
@@ -128,6 +127,12 @@ def run_etl(ignore_exceptions: bool = False, issue_model: TrackerIssue = Tracker
 def main() -> None:
     """Entry point for CLI command."""
     configure_sentry()
+
+    if args.run_once:
+        logger.info("A one-time launch command is received, the scheduler setting will be skipped")
+        run_etl()
+        sys.exit(0)
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     scheduler.start()

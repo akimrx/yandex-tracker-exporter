@@ -1,4 +1,4 @@
-version = "1.0.3"
+version = "2.0.0"
 url = "https://github.com/akimrx/yandex-tracker-exporter"
 download_url = "https://pypi.org/project/tracker-exporter/"
 appname = "yandex_tracker_exporter"

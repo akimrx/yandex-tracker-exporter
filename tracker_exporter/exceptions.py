@@ -28,3 +28,7 @@ class JsonFileNotFound(Exception):
 
 class InvalidJsonFormat(Exception):
     pass
+
+
+class SerializerError(Exception):
+    pass

@@ -1,5 +1,5 @@
 import json
-from abc import ABCMeta, ABC, abstractmethod
+from abc import ABCMeta
 from enum import Enum
 from typing import Any
 
@@ -10,17 +10,6 @@ class ClickhousePayload(BaseModel):
     issue: dict
     changelog: list
     metrics: list
-
-
-class StateStorageTypes(str, Enum):
-    redis = "redis"
-    jsonfile = "jsonfile"
-    custom = "custom"
-
-
-class JsonStorageStrategies(str, Enum):
-    local = "local"
-    s3 = "s3"
 
 
 class LogLevels(str, Enum):
@@ -100,41 +89,3 @@ class Base:
 
         data = self.__dict__.copy()
         return parse(data)
-
-
-class BaseStateStorage(ABC):
-    """Abstract class for state storage.
-    Allows you to save, receive, delete and flush the state.
-
-    """
-
-    @abstractmethod
-    def set(self, key: str, value: Any) -> None:
-        """Save key:value pair to storage."""
-
-    @abstractmethod
-    def get(self, key: str) -> Any:
-        """Get value by key from storage."""
-
-    @abstractmethod
-    def delete(self, key: str) -> None:
-        """Delete value by key from storage."""
-
-    @abstractmethod
-    def flush(self) -> None:
-        """Flush (drop) state from storage."""
-
-
-class JSONFileStorageStrategy(ABC):
-    """Abstract strategy for store content via file."""
-
-    def __init__(self, file_path: str) -> None:
-        self.file_path = file_path
-
-    @abstractmethod
-    def read(self) -> Any:
-        """Read content from file."""
-
-    @abstractmethod
-    def save(self) -> Any:
-        """Save content to file."""
