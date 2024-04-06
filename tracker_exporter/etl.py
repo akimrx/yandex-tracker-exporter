@@ -1,7 +1,7 @@
 import time
 import logging
 from datetime import datetime, timedelta
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from yandex_tracker_client.collections import Issues
 from yandex_tracker_client.objects import SeekablePaginatedList
 from yandex_tracker_client.exceptions import Forbidden
@@ -9,7 +9,7 @@ from yandex_tracker_client.exceptions import Forbidden
 from tracker_exporter.config import config, monitoring
 from tracker_exporter.models.issue import TrackerIssue
 from tracker_exporter.models.base import ClickhousePayload
-from tracker_exporter.services.state import StateKeeper
+from tracker_exporter.state.managers import AbstractStateManager
 from tracker_exporter.services.tracker import YandexTrackerClient
 from tracker_exporter.services.clickhouse import ClickhouseClient
 from tracker_exporter.exceptions import ConfigurationError, UploadError, ExportOrTransformError
@@ -31,7 +31,7 @@ class YandexTrackerETL:
         *,
         tracker_client: YandexTrackerClient,
         clickhouse_client: ClickhouseClient,
-        statekeeper: StateKeeper | None = None,
+        state_manager: Optional[AbstractStateManager] = None,
         issue_model: TrackerIssue = TrackerIssue,
         database: str = config.clickhouse.database,
         issues_table: str = config.clickhouse.issues_table,
@@ -42,7 +42,7 @@ class YandexTrackerETL:
     ) -> None:
         self.tracker = tracker_client
         self.clickhouse = clickhouse_client
-        self.state = statekeeper
+        self.state = state_manager
         self.issue_model = issue_model
         self.database = database
         self.issues_table = issues_table
@@ -142,7 +142,7 @@ class YandexTrackerETL:
         found_issues = self.tracker.search_issues(query=query, filter=filter, order=order, limit=limit)
         if len(found_issues) == 0:
             logger.info("Nothing to export. Skipping ETL")
-            return
+            return issues, changelog_events, metrics, possible_new_state
 
         if isinstance(found_issues, SeekablePaginatedList):
             pagination = True
@@ -216,7 +216,7 @@ class YandexTrackerETL:
         try:
             issues, changelogs, metrics, possible_new_state = self._export_and_transform(**query, limit=limit)
             if stateful and possible_new_state is not None:
-                logger.info(f"Possible new state: {possible_new_state}")
+                logger.info(f"Stateful mode enabled, fetching possible new state: {possible_new_state}")
                 last_saved_state = self.state.get(self.state_key)
                 if last_saved_state == possible_new_state and len(issues) <= 1 and len(metrics) <= 1:
                     logger.info("Data already is up-to-date, skipping upload stage")
@@ -247,6 +247,7 @@ class YandexTrackerETL:
                     raise UploadError(str(exc))
             else:
                 if all((stateful, self.state, possible_new_state)):
+                    logger.info(f"Saving last ETL timestamp {possible_new_state}")
                     self.state.set(self.state_key, possible_new_state)
                 else:
                     logger.info(

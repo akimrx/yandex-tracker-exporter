@@ -2,16 +2,11 @@ import datetime
 import logging
 
 from functools import lru_cache
-from typing import List
+from typing import Literal, Optional, Union
 from pydantic import validator, root_validator
 from pydantic_settings import BaseSettings
 
-from tracker_exporter.models.base import (
-    YandexTrackerLanguages,
-    LogLevels,
-    StateStorageTypes,
-    JsonStorageStrategies,
-)
+from tracker_exporter.models.base import YandexTrackerLanguages, LogLevels
 from tracker_exporter.exceptions import ConfigurationError
 from tracker_exporter.services.monitoring import DogStatsdClient
 
@@ -24,13 +19,13 @@ logger = logging.getLogger(__name__)
 class MonitoringSettings(BaseSettings):
     """Observability settings."""
 
-    metrics_enabled: bool = False
-    metrics_host: str = "localhost"
-    metrics_port: int = 8125
-    metrics_base_prefix: str = "tracker_exporter"
-    metrics_base_labels: List[str] = []
-    sentry_enabled: bool = False
-    sentry_dsn: str | None = None
+    metrics_enabled: Optional[bool] = False
+    metrics_host: Optional[str] = "localhost"
+    metrics_port: Optional[int] = 8125
+    metrics_base_prefix: Optional[str] = "tracker_exporter"
+    metrics_base_labels: Optional[list[str]] = []
+    sentry_enabled: Optional[bool] = False
+    sentry_dsn: Optional[str] = None
 
     @validator("sentry_dsn", pre=True, always=True)
     def validate_sentry_dsn(cls, value: str | None, values: dict) -> str:
@@ -46,23 +41,23 @@ class MonitoringSettings(BaseSettings):
 class ClickhouseSettings(BaseSettings):
     """Settings for Clickhouse storage."""
 
-    enable_upload: bool = True
-    host: str = "localhost"
-    proto: str = "http"
-    port: int = 8123
-    cacert_path: str | None = None
+    enable_upload: Optional[bool] = True
+    host: Optional[str] = "localhost"
+    proto: Optional[str] = "http"
+    port: Optional[int] = 8123
+    cacert_path: Optional[str] = None
     serverless_proxy_id: str | None = None
-    username: str = "default"
-    password: str | None = None
-    database: str = "agile"
-    issues_table: str = "issues"
-    issue_metrics_table: str = "issue_metrics"
-    issues_changelog_table: str = "issues_changelog"
-    auto_deduplicate: bool = True
-    backoff_base_delay: int | float = 0.5
-    backoff_expo_factor: int | float = 2.5
-    backoff_max_tries: int = 3
-    backoff_jitter: bool = True
+    username: Optional[str] = "default"
+    password: Optional[str] = None
+    database: Optional[str] = "agile"
+    issues_table: Optional[str] = "issues"
+    issue_metrics_table: Optional[str] = "issue_metrics"
+    issues_changelog_table: Optional[str] = "issues_changelog"
+    auto_deduplicate: Optional[bool] = True
+    backoff_base_delay: Optional[Union[int, float]] = 0.5
+    backoff_expo_factor: Optional[Union[int, float]] = 2.5
+    backoff_max_tries: Optional[int] = 3
+    backoff_jitter: Optional[bool] = True
 
     @validator("serverless_proxy_id", pre=True, always=True)
     def validate_serverless_proxy_id(cls, value: str | None, values: dict) -> str:
@@ -85,10 +80,10 @@ class ClickhouseSettings(BaseSettings):
 class IssuesSearchSettings(BaseSettings):
     """Settings for search & export."""
 
-    query: str | None = None
-    range: str = "2h"
-    queues: str | List[str] | None = None
-    per_page_limit: int = 100
+    query: Optional[str] = None
+    range: Optional[str] = "2h"
+    queues: Optional[Union[str, list[str]]] = None
+    per_page_limit: Optional[int] = 100
 
     @validator("queues", pre=True, always=True)
     def validate_queues(cls, value: str) -> list:
@@ -108,15 +103,15 @@ class IssuesSearchSettings(BaseSettings):
 class TrackerSettings(BaseSettings):
     """Settings for Yandex.Tracker client."""
 
-    loglevel: LogLevels = LogLevels.warning
-    token: str | None = None
-    org_id: str | None = None
-    iam_token: str | None = None
-    cloud_org_id: str | None = None
-    timeout: int = 10
-    max_retries: int = 10
-    language: YandexTrackerLanguages = YandexTrackerLanguages.en
-    timezone: str = "Europe/Moscow"
+    loglevel: Optional[LogLevels] = LogLevels.warning
+    token: Optional[str] = None
+    org_id: Optional[str] = None
+    iam_token: Optional[str] = None
+    cloud_org_id: Optional[str] = None
+    timeout: Optional[int] = 10
+    max_retries: Optional[int] = 10
+    language: Optional[YandexTrackerLanguages] = YandexTrackerLanguages.en
+    timezone: Optional[str] = "Europe/Moscow"
     search: IssuesSearchSettings = IssuesSearchSettings()
 
     @root_validator(pre=True)
@@ -145,16 +140,16 @@ class TrackerSettings(BaseSettings):
 class StateSettings(BaseSettings):
     """Settings for stateful mode."""
 
-    storage: StateStorageTypes | None = StateStorageTypes.jsonfile
-    redis_dsn: str = "redis://localhost:6379"
-    jsonfile_strategy: JsonStorageStrategies = JsonStorageStrategies.local
-    jsonfile_path: str = "./state.json"
-    jsonfile_s3_bucket: str | None = None
-    jsonfile_s3_region: str = "eu-east-1"
-    jsonfile_s3_endpoint: str | None = None
-    jsonfile_s3_access_key: str | None = None
-    jsonfile_s3_secret_key: str | None = None
-    custom_storage_params: dict = {}
+    storage: Optional[Literal["redis", "jsonfile", "custom"]] = "jsonfile"
+    redis_dsn: Optional[str] = "redis://localhost:6379"
+    jsonfile_strategy: Optional[Literal["s3", "local"]] = "local"
+    jsonfile_path: Optional[str] = "state.json"
+    jsonfile_s3_bucket: Optional[str] = None
+    jsonfile_s3_region: Optional[str] = "us-east-1"
+    jsonfile_s3_endpoint: Optional[str] = None
+    jsonfile_s3_access_key: Optional[str] = None
+    jsonfile_s3_secret_key: Optional[str] = None
+    custom_storage_params: Optional[dict] = {}
 
     @root_validator(pre=True)
     def validate_state(cls, values) -> str:
@@ -172,7 +167,7 @@ class StateSettings(BaseSettings):
             )
         )
 
-        if jsonfile_strategy == JsonStorageStrategies.s3 and not s3_is_configured:
+        if jsonfile_strategy == "s3" and not s3_is_configured:
             raise ConfigurationError("S3 must be configured for JSONFileStorage with S3 strategy.")
 
         return values
@@ -188,23 +183,23 @@ class Settings(BaseSettings):
     clickhouse: ClickhouseSettings = ClickhouseSettings()
     tracker: TrackerSettings = TrackerSettings  # TODO (akimrx): research, called class not see TOKEN's
     state: StateSettings = StateSettings()
-    stateful: bool = False
-    stateful_initial_range: str = "1w"
-    changelog_export_enabled: bool = False
-    log_etl_stats: bool = True
-    log_etl_stats_each_n_iter: int = 100
+    stateful: Optional[bool] = False
+    stateful_initial_range: Optional[str] = "1w"
+    changelog_export_enabled: Optional[bool] = False
+    log_etl_stats: Optional[bool] = True
+    log_etl_stats_each_n_iter: Optional[int] = 100
 
-    loglevel: LogLevels = LogLevels.info
-    workdays: List[int] = [0, 1, 2, 3, 4]
-    business_hours_start: datetime.time = datetime.time(9)
-    business_hours_end: datetime.time = datetime.time(22)
-    datetime_response_format: str = "%Y-%m-%dT%H:%M:%S.%f%z"
-    datetime_query_format: str = "%Y-%m-%d %H:%M:%S"
-    datetime_clickhouse_format: str = "%Y-%m-%dT%H:%M:%S.%f"
+    loglevel: Optional[LogLevels] = LogLevels.info
+    workdays: Optional[list[int]] = [0, 1, 2, 3, 4]
+    business_hours_start: Optional[datetime.time] = datetime.time(9)
+    business_hours_end: Optional[datetime.time] = datetime.time(22)
+    datetime_response_format: Optional[str] = "%Y-%m-%dT%H:%M:%S.%f%z"
+    datetime_query_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
+    datetime_clickhouse_format: Optional[str] = "%Y-%m-%dT%H:%M:%S.%f"
 
-    etl_interval_minutes: int = 30
-    closed_issue_statuses: str | list = "closed,rejected,resolved,cancelled,released"
-    not_nullable_fields: tuple | list | str = (
+    etl_interval_minutes: Optional[int] = 30
+    closed_issue_statuses: Optional[Union[str, list]] = "closed,rejected,resolved,cancelled,released"
+    not_nullable_fields: Optional[Union[tuple, list, str]] = (
         "created_at",
         "resolved_at",
         "closed_at",
