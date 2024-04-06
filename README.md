@@ -53,7 +53,7 @@ The behavior can be changed by enabling stateful mode, which supports 3 backends
 
 #### Local JSON file
 
-```bash
+```ini
 EXPORTER_STATEFUL=true
 
 # used for the first run to capture historical issues
@@ -68,7 +68,7 @@ EXPORTER_STATE__JSONFILE_STRATEGY=local  # this is default value
 
 #### Remote JSON file (S3)
 
-```bash
+```ini
 EXPORTER_STATEFUL=true
 EXPORTER_STATEFUL_INITIAL_RANGE=7d
 
@@ -85,7 +85,7 @@ EXPORTER_STATE__JSONFILE_S3_ENDPOINT=https://storage.yandexcloud.net
 
 #### Redis
 
-```bash
+```ini
 
 EXPORTER_STATEFUL=true
 EXPORTER_STATEFUL_INITIAL_RANGE=7d
