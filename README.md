@@ -11,10 +11,16 @@ Export issue metadata & agile metrics, transform and load to OLAP data storage. 
 
 > You can fork this repository and refine the tool the way you want. Or use it as it is - this will allow you to build basic analytics on the tasks from Yandex.Tracker.
 
-Require:
+**Require:**
 
 - Python `>=3.10.*`
 - Clickhouse + specific [tables](/migrations/clickhouse/) (how to run [migration](#migration))
+
+**Collects:**
+
+- Issue metadata (i.e. title, author, assignee, components, tags, status, etc)
+- Issue changelog (i.e the history of all the events that occurred with the task)
+- Calculated issue metrics by status (i.e. the time spent in a particular status) like Cycle & Lead time
 
 ## Datalens Demo
 
@@ -96,12 +102,6 @@ EXPORTER_STATE__REDIS_DSN=redis://localhost:6379
 
 ...
 ```
-
-**Collects:**
-
-- Issue metadata (i.e. title, author, assignee, components, tags, status, etc)
-- Issue changelog (i.e the history of all the events that occurred with the task)
-- Calculated issue metrics by status (i.e. the time spent in a particular status) like Cycle & Lead time
 
 ### Cycle time calculation algorithm
 
