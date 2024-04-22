@@ -63,11 +63,12 @@ jobs:
           paths: |
             .test_report.xml
 
-      - name: Submit coverage
-        uses: codecov/codecov-action@v3
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        with:
-          env_vars: OS,PYTHON
-          name: ${{ matrix.os }}-${{ matrix.python-version }}
-          fail_ci_if_error: true
+      # FIXME: not works
+      # - name: Submit coverage
+      #   uses: codecov/codecov-action@v3
+      #   env:
+      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      #   with:
+      #     env_vars: OS,PYTHON
+      #     name: ${{ matrix.os }}-${{ matrix.python-version }}
+      #     fail_ci_if_error: true
