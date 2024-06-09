@@ -7,8 +7,8 @@
 - [x] docker image
 - [x] update serverless instruction
 - [x] stateful mode (local json)
-- [ ] stateful mode (s3 json)
-- [ ] stateful mode (redis)
+- [x] stateful mode (s3 json)
+- [x] stateful mode (redis)
 - [ ] helm chart
 - [ ] replace asserts in code to if/raise
 - [ ] pytest
